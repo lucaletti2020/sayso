@@ -1,0 +1,305 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, Mic, MicOff, PhoneOff, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+
+type CallState = "idle" | "connecting" | "active" | "ending" | "feedback" | "error";
+type Feedback = {
+  overallScore: number;
+  fluency: number;
+  vocabulary: number;
+  grammar: number;
+  highlights: string[];
+  improvements: string[];
+  summary: string;
+};
+type Turn = { role: "user" | "assistant"; text: string };
+
+function ScoreCircle({ label, value }: { label: string; value: number }) {
+  const color = value >= 75 ? "text-green-600" : value >= 50 ? "text-yellow-600" : "text-red-500";
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <span className={`text-2xl font-bold ${color}`}>{Math.round(value)}</span>
+      <span className="text-xs text-muted-foreground">{label}</span>
+    </div>
+  );
+}
+
+export default function SimulationPage() {
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const dcRef = useRef<RTCDataChannel | null>(null);
+  const micRef = useRef<MediaStream | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const transcriptRef = useRef<Turn[]>([]);
+  const responseCountRef = useRef(0);
+  const endedRef = useRef(false);
+
+  const [callState, setCallState] = useState<CallState>("idle");
+  const [isMuted, setIsMuted] = useState(false);
+  const [feedback, setFeedback] = useState<Feedback | null>(null);
+
+  // Warm the conversation prompt the first time the page is opened (generates
+  // and caches it server-side).
+  useEffect(() => {
+    fetch("/api/scenario/simulation-prompt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scenarioId: id }),
+    }).catch(() => {});
+  }, [id]);
+
+  useEffect(() => {
+    return () => teardown();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function teardown() {
+    dcRef.current?.close();
+    pcRef.current?.close();
+    micRef.current?.getTracks().forEach((t) => t.stop());
+    dcRef.current = null;
+    pcRef.current = null;
+    micRef.current = null;
+  }
+
+  async function startCall() {
+    setCallState("connecting");
+    endedRef.current = false;
+    responseCountRef.current = 0;
+    transcriptRef.current = [];
+
+    try {
+      // 1. Get an ephemeral session (prompt injected server-side).
+      const sres = await fetch("/api/scenario/realtime-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scenarioId: id }),
+      });
+      if (!sres.ok) throw new Error("session");
+      const { ephemeralKey, region, deployment } = await sres.json();
+
+      // 2. Mic + peer connection.
+      const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micRef.current = mic;
+
+      const pc = new RTCPeerConnection();
+      pcRef.current = pc;
+
+      pc.ontrack = (e) => {
+        if (audioRef.current) {
+          audioRef.current.srcObject = e.streams[0];
+          audioRef.current.play().catch(() => {});
+        }
+      };
+      mic.getTracks().forEach((t) => pc.addTrack(t, mic));
+
+      // 3. Data channel for realtime events.
+      const dc = pc.createDataChannel("oai-events");
+      dcRef.current = dc;
+      dc.onopen = () => {
+        setCallState("active");
+        // Make the agent speak first (the opening greeting).
+        dc.send(JSON.stringify({ type: "response.create" }));
+      };
+      dc.onmessage = (e) => handleEvent(JSON.parse(e.data));
+
+      // 4. SDP exchange with the Azure regional realtime endpoint.
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      const rtcUrl = `https://${region}.realtimeapi-preview.ai.azure.com/v1/realtimertc?model=${deployment}`;
+      const sdpRes = await fetch(rtcUrl, {
+        method: "POST",
+        body: offer.sdp,
+        headers: { Authorization: `Bearer ${ephemeralKey}`, "Content-Type": "application/sdp" },
+      });
+      if (!sdpRes.ok) throw new Error("sdp");
+      const answer = { type: "answer" as const, sdp: await sdpRes.text() };
+      await pc.setRemoteDescription(answer);
+    } catch {
+      teardown();
+      setCallState("error");
+    }
+  }
+
+  function handleEvent(evt: { type: string; transcript?: string }) {
+    switch (evt.type) {
+      // The user's spoken turn, transcribed.
+      case "conversation.item.input_audio_transcription.completed":
+        if (evt.transcript) transcriptRef.current.push({ role: "user", text: evt.transcript });
+        break;
+      // The agent's spoken turn, transcribed.
+      case "response.audio_transcript.done":
+        if (evt.transcript) transcriptRef.current.push({ role: "assistant", text: evt.transcript });
+        break;
+      // One full agent response finished. Opening + 2 replies = 3 responses,
+      // then the conversation is over → end automatically.
+      case "response.done":
+        responseCountRef.current += 1;
+        if (responseCountRef.current >= 3) {
+          // Let the goodbye audio finish before hanging up.
+          setTimeout(() => finishCall(), 3500);
+        }
+        break;
+    }
+  }
+
+  async function finishCall() {
+    if (endedRef.current) return;
+    endedRef.current = true;
+    teardown();
+    setCallState("ending");
+
+    const transcript = transcriptRef.current
+      .map((t) => `${t.role === "user" ? "Learner" : "Partner"}: ${t.text}`)
+      .join("\n");
+
+    if (!transcript.trim()) {
+      setCallState("error");
+      return;
+    }
+
+    const res = await fetch("/api/scenario/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scenarioId: id, transcript }),
+    });
+    if (!res.ok) {
+      setCallState("error");
+      return;
+    }
+    const { feedback: fb } = await res.json();
+    setFeedback(fb);
+    setCallState("feedback");
+  }
+
+  function toggleMute() {
+    const next = !isMuted;
+    micRef.current?.getAudioTracks().forEach((t) => (t.enabled = !next));
+    setIsMuted(next);
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <audio ref={audioRef} autoPlay className="hidden" />
+      <Link
+        href={`/scenario/${id}`}
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Back to scenario
+      </Link>
+
+      {callState === "idle" && (
+        <div className="text-center py-16">
+          <div className="mb-6">
+            <Mic className="h-12 w-12 mx-auto text-primary mb-4" />
+            <h1 className="font-display text-4xl leading-tight mb-2">Ready for your conversation?</h1>
+            <p className="text-sm text-muted-foreground">
+              Speak naturally — don&apos;t worry about mistakes. The call ends on its own.
+            </p>
+          </div>
+          <Button size="lg" onClick={startCall} className="px-8">
+            Start conversation
+          </Button>
+        </div>
+      )}
+
+      {callState === "connecting" && (
+        <div className="text-center py-16">
+          <Loader2 className="h-10 w-10 mx-auto animate-spin text-primary mb-4" />
+          <p className="text-sm text-muted-foreground">Connecting…</p>
+        </div>
+      )}
+
+      {callState === "active" && (
+        <div className="text-center py-16">
+          <div className="mb-8">
+            <div className="h-20 w-20 rounded-full bg-primary/10 border-4 border-primary/30 mx-auto flex items-center justify-center mb-4 animate-pulse">
+              <Mic className="h-8 w-8 text-primary" />
+            </div>
+            <Badge variant="secondary" className="text-green-700 bg-green-100">Live</Badge>
+          </div>
+          <div className="flex justify-center gap-4">
+            <Button variant="outline" size="lg" onClick={toggleMute}>
+              {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+            </Button>
+            <Button variant="destructive" size="lg" onClick={finishCall}>
+              <PhoneOff className="h-5 w-5 mr-2" /> End now
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {callState === "ending" && (
+        <div className="text-center py-16">
+          <Loader2 className="h-10 w-10 mx-auto animate-spin text-primary mb-4" />
+          <p className="font-medium mb-1">Analysing your conversation…</p>
+          <p className="text-sm text-muted-foreground">Your feedback will be ready in a moment.</p>
+        </div>
+      )}
+
+      {callState === "feedback" && feedback && (
+        <div>
+          <h1 className="font-display text-4xl leading-tight mb-6">Your feedback</h1>
+
+          <div className="rounded-2xl border p-6 mb-6">
+            <div className="flex justify-around mb-6">
+              <ScoreCircle label="Overall" value={feedback.overallScore} />
+              <ScoreCircle label="Fluency" value={feedback.fluency} />
+              <ScoreCircle label="Vocabulary" value={feedback.vocabulary} />
+              <ScoreCircle label="Grammar" value={feedback.grammar} />
+            </div>
+            <p className="text-sm text-center text-muted-foreground">{feedback.summary}</p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4 mb-8">
+            <div className="rounded-xl border p-4">
+              <h3 className="text-sm font-semibold text-green-700 mb-3">What went well</h3>
+              <ul className="flex flex-col gap-2">
+                {feedback.highlights.map((h, i) => (
+                  <li key={i} className="text-sm flex gap-2">
+                    <span className="text-green-500 shrink-0">✓</span> {h}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-xl border p-4">
+              <h3 className="text-sm font-semibold text-blue-700 mb-3">To improve</h3>
+              <ul className="flex flex-col gap-2">
+                {feedback.improvements.map((imp, i) => (
+                  <li key={i} className="text-sm flex gap-2">
+                    <span className="text-blue-500 shrink-0">→</span> {imp}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={() => router.push("/home")} className="flex-1">
+              Back to my course
+            </Button>
+            <Button onClick={() => { setCallState("idle"); setFeedback(null); }} className="flex-1">
+              Try again
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {callState === "error" && (
+        <div className="text-center py-16">
+          <p className="text-sm text-destructive mb-4">Something went wrong. Please try again.</p>
+          <Button onClick={() => setCallState("idle")}>Try again</Button>
+        </div>
+      )}
+    </div>
+  );
+}

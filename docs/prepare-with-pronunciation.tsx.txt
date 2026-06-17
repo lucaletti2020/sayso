@@ -1,0 +1,193 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, Volume2, Mic, MicOff, CheckCircle2, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+
+type Sentence = { id: string; text: string; audioUrl: string | null; orderIndex: number };
+type PronunciationFeedback = {
+  accuracyScore: number;
+  fluencyScore: number;
+  completenessScore: number;
+  prosodyScore: number | null;
+  tip: string;
+};
+
+function ScoreBar({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span className="w-24 text-muted-foreground">{label}</span>
+      <Progress value={value} className="flex-1 h-1.5" />
+      <span className="w-8 text-right font-medium">{Math.round(value)}</span>
+    </div>
+  );
+}
+
+function SentenceRow({
+  sentence,
+  scenarioId,
+}: {
+  sentence: Sentence;
+  scenarioId: string;
+}) {
+  const [audioUrl, setAudioUrl] = useState<string | null>(sentence.audioUrl);
+  const [loadingAudio, setLoadingAudio] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [feedback, setFeedback] = useState<PronunciationFeedback | null>(null);
+  const [loadingFeedback, setLoadingFeedback] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+
+  async function playAudio() {
+    if (!audioUrl) {
+      setLoadingAudio(true);
+      const res = await fetch("/api/scenario/audio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sentenceId: sentence.id }),
+      });
+      const { audioUrl: url } = await res.json();
+      setAudioUrl(url);
+      setLoadingAudio(false);
+      new Audio(url).play();
+    } else {
+      new Audio(audioUrl).play();
+    }
+  }
+
+  async function toggleRecording() {
+    if (recording) {
+      mediaRecorder?.stop();
+      setRecording(false);
+      return;
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mr = new MediaRecorder(stream);
+    const chunks: Blob[] = [];
+
+    mr.ondataavailable = (e) => chunks.push(e.data);
+    mr.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      const blob = new Blob(chunks, { type: "audio/webm" });
+      setLoadingFeedback(true);
+      const form = new FormData();
+      form.append("audio", blob, "recording.webm");
+      form.append("referenceText", sentence.text);
+      form.append("scenarioId", scenarioId);
+      const res = await fetch("/api/scenario/pronunciation", { method: "POST", body: form });
+      const { feedback: fb } = await res.json();
+      setFeedback(fb);
+      setLoadingFeedback(false);
+    };
+
+    mr.start();
+    setMediaRecorder(mr);
+    setRecording(true);
+  }
+
+  const avgScore = feedback
+    ? (feedback.accuracyScore + feedback.fluencyScore + feedback.completenessScore) / 3
+    : null;
+
+  return (
+    <div className="rounded-xl border p-4">
+      <div className="flex items-start justify-between gap-4">
+        <p className="text-sm font-medium flex-1">{sentence.text}</p>
+        <div className="flex gap-2 shrink-0">
+          <Button size="sm" variant="outline" onClick={playAudio} disabled={loadingAudio}>
+            {loadingAudio ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Volume2 className="h-3.5 w-3.5" />}
+          </Button>
+          <Button
+            size="sm"
+            variant={recording ? "destructive" : "outline"}
+            onClick={toggleRecording}
+            disabled={loadingFeedback}
+          >
+            {loadingFeedback ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : recording ? (
+              <MicOff className="h-3.5 w-3.5" />
+            ) : (
+              <Mic className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {feedback && (
+        <div className="mt-3 rounded-lg bg-muted/50 p-3 flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-green-500" />
+            <span className="text-xs font-medium">Overall: {Math.round(avgScore!)}%</span>
+          </div>
+          <ScoreBar label="Accuracy" value={feedback.accuracyScore} />
+          <ScoreBar label="Fluency" value={feedback.fluencyScore} />
+          <ScoreBar label="Completeness" value={feedback.completenessScore} />
+          {feedback.prosodyScore !== null && (
+            <ScoreBar label="Prosody" value={feedback.prosodyScore} />
+          )}
+          {feedback.tip && (
+            <p className="mt-1 text-xs text-muted-foreground italic">💡 {feedback.tip}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function PreparePage() {
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const [sentences, setSentences] = useState<Sentence[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/scenario/sentences", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scenarioId: id }),
+    })
+      .then((r) => r.json())
+      .then(({ sentences: s }) => { setSentences(s ?? []); setLoading(false); });
+  }, [id]);
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <Link
+        href={`/scenario/${id}`}
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Back to scenario
+      </Link>
+
+      <h1 className="font-display text-4xl leading-tight mb-1">Prepare</h1>
+      <p className="text-sm text-muted-foreground mb-6">
+        Listen to each sentence, then record yourself and get instant pronunciation feedback.
+      </p>
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Generating sentences…
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {sentences.map((s) => (
+            <SentenceRow key={s.id} sentence={s} scenarioId={id} />
+          ))}
+        </div>
+      )}
+
+      <div className="mt-8">
+        <Button className="w-full" size="lg" onClick={() => router.push(`/scenario/${id}/simulation`)}>
+          I'm ready — start the conversation
+        </Button>
+      </div>
+    </div>
+  );
+}
