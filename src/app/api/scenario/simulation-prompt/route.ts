@@ -19,18 +19,19 @@ export async function POST(req: NextRequest) {
   });
   if (!scenario) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { name: true, jobTitle: true, company: true, englishLevel: true },
+  });
+
   // Already generated — reuse it.
   if (scenario.simulationPrompt) {
     return NextResponse.json({
       prompt: scenario.simulationPrompt,
       firstMessage: extractOpening(scenario.simulationPrompt),
+      englishLevel: user?.englishLevel ?? null,
     });
   }
-
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { name: true, jobTitle: true, company: true, englishLevel: true },
-  });
 
   const openai = getAzureOpenAI();
   const completion = await openai.chat.completions.create({
@@ -63,7 +64,11 @@ export async function POST(req: NextRequest) {
     data: { simulationPrompt: prompt },
   });
 
-  return NextResponse.json({ prompt, firstMessage: extractOpening(prompt) });
+  return NextResponse.json({
+    prompt,
+    firstMessage: extractOpening(prompt),
+    englishLevel: user?.englishLevel ?? null,
+  });
 }
 
 // Pulls the opening line the agent should speak first, from the template's

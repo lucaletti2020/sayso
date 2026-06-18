@@ -45,5 +45,5 @@ export async function POST(req: NextRequest) {
     return true;
   });
 
-  return NextResponse.json({ modules: modules.slice(0, 10) });
+  return NextResponse.json({ modules: modules.slice(0, 8) });
 }

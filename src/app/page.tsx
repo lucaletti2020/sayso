@@ -317,7 +317,7 @@ export default function Home() {
     setModules(mods);
     setSelectedModules([]);
     setStep("modules");
-    addAgent(`Here are 10 topics for your course. Pick the ones you need — up to ${MAX_MODULES}. I'll make 5 practice scenarios for each.`);
+    addAgent("Here are 8 topics for your course — pick the ones you need.");
   }
 
   function toggleModule(title: string) {
@@ -353,8 +353,7 @@ export default function Home() {
     chosenModules: Module[]
   ) {
     setStep("generating");
-    const count = chosenModules.length * 5;
-    addAgent(`Great! Building your course now — ${count} scenarios. One moment ✨`);
+    addAgent("Great! Building your course now — one moment ✨");
 
     const res = await fetch("/api/onboarding/generate-scenarios", {
       method: "POST",
@@ -447,7 +446,7 @@ export default function Home() {
                   <UserBubble key={m.id} text={m.text} />
                 )
               )}
-              {busy && <TypingBubble />}
+              {busy && !(step === "generating" && !session?.user) && <TypingBubble />}
 
               {/* Multiple-choice answers (select one or more) */}
               {currentQuestion && !busy && (

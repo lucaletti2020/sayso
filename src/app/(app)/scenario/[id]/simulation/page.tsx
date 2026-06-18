@@ -18,6 +18,7 @@ export default function SimulationPage() {
   const vapiRef = useRef<Vapi | null>(null);
   const promptRef = useRef<string | null>(null);
   const firstMessageRef = useRef<string | null>(null);
+  const levelRef = useRef<string | null>(null);
   const transcriptRef = useRef<Turn[]>([]);
   const endedRef = useRef(false);
   // Turn tracking driven by the conversation history (robust to mid-turn pauses).
@@ -46,6 +47,7 @@ export default function SimulationPage() {
     const d = await r.json();
     promptRef.current = d.prompt ?? null;
     firstMessageRef.current = d.firstMessage ?? null;
+    levelRef.current = d.englishLevel ?? null;
   }
 
   useEffect(() => {
@@ -116,6 +118,9 @@ export default function SimulationPage() {
       // If we extracted the template's opening line, speak it verbatim;
       // otherwise let the model generate the first message from the prompt.
       const opening = firstMessageRef.current;
+      // Slow the voice down for lower English levels so it's easier to follow.
+      const lvl = (levelRef.current ?? "").toLowerCase();
+      const voiceSpeed = lvl === "beginner" || lvl === "intermediate" ? 0.75 : 1;
       await vapi.start({
         firstMessage: opening ?? undefined,
         firstMessageMode: opening
@@ -126,7 +131,7 @@ export default function SimulationPage() {
           model: "gpt-4o",
           messages: [{ role: "system", content: promptRef.current ?? "" }],
         },
-        voice: { provider: "vapi", voiceId: "Elliot" },
+        voice: { provider: "vapi", voiceId: "Elliot", speed: voiceSpeed },
         maxDurationSeconds: 180,
         metadata: { scenarioId: id },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -38,11 +38,20 @@ export function onboardingQuestionPrompt(
 
   const task =
     stage === 1
-      ? `Ask ONE multiple-choice question about the TYPES of work situations where this person needs to speak English (e.g. meetings, client calls, presentations, negotiations, small talk). The options should be concrete situation types specific to their role.`
+      ? `Ask ONE multiple-choice question about the TYPES of work situations where this person needs to speak English.
+
+First, think PRIVATELY (do NOT show this reasoning): what are the 5 most common situations at work that a person in THIS exact role and industry has? Base it on their job title, company, and responsibilities.
+
+Then turn those 5 situations into the 5 options for this question.`
       : `So far they told us:
 ${priorAnswers.map((a) => `- ${a.question} → ${a.answer}`).join("\n")}
 
 Now ask ONE follow-up multiple-choice question that builds on that answer to understand their specific role better — for example who exactly they talk to, or what kind of work those situations involve. Make it clearly follow from what they just said.`;
+
+  const optionsRule =
+    stage === 1
+      ? "- Provide EXACTLY 5 options — one for each of the 5 most common situations you identified."
+      : "- Provide 3 or 4 concrete, mutually distinct options.";
 
   return `${context}
 
@@ -50,7 +59,7 @@ ${task}
 
 Requirements:
 - Specific to THIS person — never generic filler.
-- 3 or 4 concrete, mutually distinct options.
+${optionsRule}
 - Options are SHORT phrases, not full sentences (e.g. "Client calls", "Team meetings"). Do NOT start with "I" or a verb.
 - Keep the question under 12 words and each option 2-5 words.
 - Simple, common words — the user is not a native English speaker. No idioms or jargon.
@@ -75,12 +84,12 @@ Their responsibilities: ${profile.responsibilities.join(", ")}.
 What they told us about their English needs (answers to a short questionnaire):
 ${profile.answers.map((a, i) => `${i + 1}. ${a.question}\n   → ${a.answer}`).join("\n")}
 
-Propose exactly 10 course modules. Each module is a theme of professional situations in which this person speaks English at work. They are the high-level building blocks of the course — the user will pick the ones most relevant to them.
+Propose exactly 8 course modules. Each module is a theme of professional situations in which this person speaks English at work. They are the high-level building blocks of the course — the user will pick the ones most relevant to them.
 
 For example, the modules for a doctor might be: "Patient Consultations", "Taking Medical Histories", "Symptom Assessment & Diagnosis", "Physical Examinations", "Explaining Conditions & Test Results", "Treatment & Medication Discussions", "Procedures & Informed Consent", "Emergency & Urgent Care Situations", "Difficult Conversations", "Follow-up & Chronic Care Management".
 
 Requirements:
-- Exactly 10 modules, each clearly distinct and specific to THIS person's role and industry.
+- Exactly 8 modules, each clearly distinct and specific to THIS person's role and industry.
 - NO repeats and no near-duplicates: every module must cover a genuinely different theme. Do not list two modules that mean the same thing or overlap heavily (e.g. never both "Explaining Concepts Clearly" and "Explaining Ideas Simply").
 - Title: 2-4 words, title case, as short as possible. Use simple, common words (the user is not a native English speaker). Drop any word that is not essential.
 - Description: one short, simple sentence on what kinds of conversations it covers.
@@ -92,7 +101,7 @@ Return ONLY valid JSON in this exact shape:
     { "title": "Module title", "description": "One sentence on what it covers." }
   ]
 }
-The "modules" array must contain exactly 10 items.`;
+The "modules" array must contain exactly 8 items.`;
 }
 
 export function scenarioGenerationPrompt(profile: {
@@ -186,9 +195,9 @@ export function simulationPromptBuilderPrompt(
   const level = profile.englishLevel ?? "Intermediate";
   const levelSpeech: Record<string, string> = {
     beginner:
-      "The user is a BEGINNER in English. Speak slowly and clearly (but still naturally). Use short, simple sentences, basic everyday vocabulary, and simple grammar. Avoid idioms, phrasal verbs, and complex structures.",
+      "The user is a BEGINNER in English. Speak SLOWLY and clearly, with small pauses between sentences. Use short, simple sentences, basic everyday vocabulary, and simple grammar. Avoid idioms, phrasal verbs, and complex structures.",
     intermediate:
-      "The user is at an INTERMEDIATE level. Speak at a calm, clear pace. Use common, everyday vocabulary and straightforward sentences. Go easy on idioms and rare words.",
+      "The user is at an INTERMEDIATE level. Speak SLOWLY and clearly, at a relaxed, unhurried pace. Use common, everyday vocabulary and straightforward sentences. Go easy on idioms and rare words.",
     "upper intermediate":
       "The user is UPPER INTERMEDIATE. Speak at a natural pace. You can use a good range of vocabulary and varied sentence structures, with the occasional idiom.",
     advanced:
