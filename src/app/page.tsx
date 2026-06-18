@@ -9,6 +9,7 @@ type Message = { id: string; role: "agent" | "user"; text: string };
 type Step =
   | "awaiting_linkedin"
   | "processing_linkedin"
+  | "confirm_role"
   | "native_language"
   | "questions"
   | "loading_modules"
@@ -40,7 +41,7 @@ export default function Home() {
     {
       id: uid(),
       role: "agent",
-      text: "Hi! 👋 I'll build an English course for your job. To start, paste your LinkedIn profile link.",
+      text: "Hi there! I'll build a personalised English course for your job. To start, please paste your LinkedIn profile link.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -134,12 +135,35 @@ export default function Home() {
     const value = input.trim();
 
     if (step === "awaiting_linkedin") {
-      if (!value) { setError("Pop your LinkedIn URL in here."); return; }
-      if (!linkedInRegex.test(value)) { setError("Hmm, that doesn't look like a LinkedIn profile URL."); return; }
+      if (!value) { setError("Please paste your LinkedIn URL here."); return; }
+      if (!linkedInRegex.test(value)) { setError("That doesn't look like a LinkedIn profile URL — please check it."); return; }
       setError(null);
       addUser(value);
       setInput("");
       await processLinkedIn(value);
+      return;
+    }
+
+    if (step === "confirm_role") {
+      if (value.length < 3) { setError("Please tell me your job title and company."); return; }
+      setError(null);
+      addUser(value);
+      setInput("");
+      setStep("processing_linkedin");
+      const res = await fetch("/api/onboarding/linkedin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: value }),
+      });
+      if (!res.ok) {
+        addAgent("Sorry, something went wrong. Please try again.");
+        setStep("confirm_role");
+        return;
+      }
+      const { profile: p } = await res.json();
+      const merged = { ...p, linkedinUrl: profile?.linkedinUrl ?? null };
+      setProfile(merged);
+      greetAndStart(merged);
       return;
     }
 
@@ -180,13 +204,28 @@ export default function Home() {
     const fullProfile = { ...p, linkedinUrl: url };
     setProfile(fullProfile);
 
-    const name = p.firstName ?? "there";
+    // LinkedIn often blocks bots, so the scrape can come back empty. If we
+    // didn't get a job title, ask the user to tell us directly.
+    if (!p.jobTitle) {
+      setStep("confirm_role");
+      addAgent(
+        "I wasn't able to read your LinkedIn profile automatically. No problem — could you tell me your name, your job title, and your company in one line? (For example: \"I'm Maria, a Marketing Manager at Acme.\")"
+      );
+      return;
+    }
+
+    greetAndStart(p);
+  }
+
+  // Greets the user with what we know and kicks off the first question.
+  function greetAndStart(p: Profile) {
+    const name = (p.firstName as string) ?? "there";
     const role = p.jobTitle ? `a ${p.jobTitle}` : "a professional";
     const at = p.company ? ` at ${p.company}` : "";
     addAgent(
-      `Hey ${name}! 👋 I see you're ${role}${at} — nice. I'll ask just 3 quick questions (no essays, I promise 😄). Tap the answers that fit, then hit Continue. Here we go:`
+      `Hi ${name}! Lovely to meet you. I can see you're ${role}${at}. I'll ask 3 quick questions to shape your course — just tap the answers that fit and press Continue.`
     );
-    await fetchNextQuestion(fullProfile, []);
+    fetchNextQuestion(p, []);
   }
 
   // Fetches the next adaptive question (stage 1 then stage 2) and shows it.
@@ -203,12 +242,12 @@ export default function Home() {
     setThinking(false);
 
     if (!qRes.ok) {
-      addAgent("Oops, my brain hiccuped. Mind trying that again?");
+      addAgent("Sorry, something went wrong. Please try again.");
       return;
     }
     const { question } = await qRes.json();
     if (!question) {
-      addAgent("Oops, my brain hiccuped. Mind trying that again?");
+      addAgent("Sorry, something went wrong. Please try again.");
       return;
     }
 
@@ -247,7 +286,7 @@ export default function Home() {
       // Q3 (level) answered → ask for native language.
       setStep("native_language");
       addAgent(
-        "Brilliant. One last thing — what's your native language? (Type it below. There are no wrong answers… unless you say Klingon. 😄)"
+        "Thank you! One last thing — what's your native language? Just type it below."
       );
     }
   }
@@ -524,6 +563,7 @@ export default function Home() {
             {/* Composer — text input for the LinkedIn URL and native language steps */}
             {(step === "awaiting_linkedin" ||
               step === "processing_linkedin" ||
+              step === "confirm_role" ||
               step === "native_language") && (
               <form
                 onSubmit={handleSubmit}
@@ -543,11 +583,13 @@ export default function Home() {
                     placeholder={
                       step === "native_language"
                         ? "e.g. Spanish, Portuguese, Mandarin…"
-                        : "https://linkedin.com/in/your-handle"
+                        : step === "confirm_role"
+                          ? "e.g. I'm Maria, a Marketing Manager at Acme."
+                          : "https://linkedin.com/in/your-handle"
                     }
                     disabled={step === "processing_linkedin"}
                     rows={1}
-                    maxLength={step === "native_language" ? 40 : 300}
+                    maxLength={step === "confirm_role" ? 200 : step === "native_language" ? 40 : 300}
                     className="min-h-[24px] flex-1 resize-none border-0 bg-transparent py-1.5 text-[15px] leading-snug placeholder:text-muted-foreground/60 focus:outline-none disabled:opacity-60"
                   />
                   <button

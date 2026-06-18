@@ -6,7 +6,20 @@ import { profileExtractionPrompt } from "@/lib/prompts";
 // We use a lightweight fetch + GPT approach. For production, swap the
 // scrape step for Proxycurl API to handle auth-gated profiles.
 export async function POST(req: NextRequest) {
-  const { url } = await req.json();
+  const { url, text } = await req.json();
+
+  // Mode 1: the user typed their details directly — extract from that text.
+  if (text) {
+    const openai = getAzureOpenAI();
+    const completion = await openai.chat.completions.create({
+      model: DEPLOYMENT,
+      messages: [{ role: "user", content: profileExtractionPrompt(text) }],
+      response_format: { type: "json_object" },
+      temperature: 0,
+    });
+    const profile = JSON.parse(completion.choices[0].message.content ?? "{}");
+    return NextResponse.json({ profile });
+  }
 
   if (!url || !url.includes("linkedin.com")) {
     return NextResponse.json({ error: "Invalid LinkedIn URL" }, { status: 400 });
