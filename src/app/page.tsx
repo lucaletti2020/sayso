@@ -9,6 +9,7 @@ type Message = { id: string; role: "agent" | "user"; text: string };
 type Step =
   | "awaiting_linkedin"
   | "processing_linkedin"
+  | "native_language"
   | "questions"
   | "loading_modules"
   | "modules"
@@ -19,6 +20,13 @@ type Module = { title: string; description: string };
 type Profile = Record<string, unknown>;
 
 const MAX_MODULES = 8;
+
+// The final question is always about English level (single-choice).
+const LEVEL_QUESTION: MCQ = {
+  question: "Last one — how would you rate your English right now?",
+  options: ["Beginner", "Intermediate", "Upper intermediate", "Advanced"],
+  single: true,
+};
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -50,12 +58,16 @@ export default function Home() {
   // whether to send them to their course (avoids a flash of the chat/button).
   const [redirecting, setRedirecting] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [thinking, setThinking] = useState(false);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const busy =
-    step === "processing_linkedin" || step === "loading_modules" || step === "generating";
+    step === "processing_linkedin" ||
+    step === "loading_modules" ||
+    step === "generating" ||
+    thinking;
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -102,10 +114,11 @@ export default function Home() {
 
   const progress = useMemo(() => {
     if (step === "awaiting_linkedin" || step === "processing_linkedin") return 0.06;
-    if (step === "questions") return 0.1 + (currentQ / Math.max(questions.length, 1)) * 0.55;
-    if (step === "loading_modules" || step === "modules") return 0.7;
+    if (step === "questions") return 0.12 + (currentQ / 3) * 0.48;
+    if (step === "native_language") return 0.66;
+    if (step === "loading_modules" || step === "modules") return 0.78;
     return 1;
-  }, [step, currentQ, questions.length]);
+  }, [step, currentQ]);
 
   function addAgent(text: string) {
     setMessages((m) => [...m, { id: uid(), role: "agent", text }]);
@@ -118,14 +131,27 @@ export default function Home() {
 
   async function handleSubmit(e?: React.FormEvent) {
     e?.preventDefault();
-    if (step !== "awaiting_linkedin") return;
     const value = input.trim();
-    if (!value) { setError("Pop your LinkedIn URL in here."); return; }
-    if (!linkedInRegex.test(value)) { setError("Hmm, that doesn't look like a LinkedIn profile URL."); return; }
-    setError(null);
-    addUser(value);
-    setInput("");
-    await processLinkedIn(value);
+
+    if (step === "awaiting_linkedin") {
+      if (!value) { setError("Pop your LinkedIn URL in here."); return; }
+      if (!linkedInRegex.test(value)) { setError("Hmm, that doesn't look like a LinkedIn profile URL."); return; }
+      setError(null);
+      addUser(value);
+      setInput("");
+      await processLinkedIn(value);
+      return;
+    }
+
+    if (step === "native_language") {
+      if (!value) { setError("Please type your native language."); return; }
+      setError(null);
+      addUser(value);
+      setInput("");
+      setProfile((prev) => ({ ...(prev ?? {}), nativeLanguage: value }));
+      await loadModules(answers);
+      return;
+    }
   }
 
   function onKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -155,31 +181,41 @@ export default function Home() {
     setProfile(fullProfile);
 
     const name = p.firstName ?? "there";
-    addAgent(`Nice to meet you, ${name}! I have 5 quick questions. Tap every answer that fits, then press Continue.`);
+    const role = p.jobTitle ? `a ${p.jobTitle}` : "a professional";
+    const at = p.company ? ` at ${p.company}` : "";
+    addAgent(
+      `Hey ${name}! 👋 I see you're ${role}${at} — nice. I'll ask just 3 quick questions (no essays, I promise 😄). Tap the answers that fit, then hit Continue. Here we go:`
+    );
+    await fetchNextQuestion(fullProfile, []);
+  }
 
+  // Fetches the next adaptive question (stage 1 then stage 2) and shows it.
+  async function fetchNextQuestion(
+    profileForQuestions: Profile,
+    prior: { question: string; answer: string }[]
+  ) {
+    setThinking(true);
     const qRes = await fetch("/api/onboarding/questions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profile: fullProfile }),
+      body: JSON.stringify({ profile: profileForQuestions, priorAnswers: prior }),
     });
+    setThinking(false);
 
     if (!qRes.ok) {
-      addAgent("Sorry, something went wrong. Please try again.");
-      setStep("awaiting_linkedin");
+      addAgent("Oops, my brain hiccuped. Mind trying that again?");
+      return;
+    }
+    const { question } = await qRes.json();
+    if (!question) {
+      addAgent("Oops, my brain hiccuped. Mind trying that again?");
       return;
     }
 
-    const { questions: qs } = await qRes.json();
-    if (!qs?.length) {
-      addAgent("Sorry, something went wrong. Please try again.");
-      setStep("awaiting_linkedin");
-      return;
-    }
-
-    setQuestions(qs);
-    setCurrentQ(0);
+    setQuestions((prev) => [...prev, question]);
+    setCurrentQ(prior.length);
     setStep("questions");
-    addAgent(`(1/${qs.length}) ${qs[0].question}`);
+    addAgent(`(${prior.length + 1}/3) ${question.question}`);
   }
 
   function toggleOption(option: string) {
@@ -199,12 +235,20 @@ export default function Home() {
     setAnswers(newAnswers);
     setSelected([]);
 
-    const next = currentQ + 1;
-    if (next < questions.length) {
-      setCurrentQ(next);
-      addAgent(`(${next + 1}/${questions.length}) ${questions[next].question}`);
+    if (newAnswers.length === 1) {
+      // Q1 answered → generate the adaptive follow-up (Q2).
+      await fetchNextQuestion(profile ?? {}, newAnswers);
+    } else if (newAnswers.length === 2) {
+      // Q2 answered → show the fixed English-level question (Q3).
+      setQuestions((prev) => [...prev, LEVEL_QUESTION]);
+      setCurrentQ(2);
+      addAgent(`(3/3) ${LEVEL_QUESTION.question}`);
     } else {
-      await loadModules(newAnswers);
+      // Q3 (level) answered → ask for native language.
+      setStep("native_language");
+      addAgent(
+        "Brilliant. One last thing — what's your native language? (Type it below. There are no wrong answers… unless you say Klingon. 😄)"
+      );
     }
   }
 
@@ -319,7 +363,7 @@ export default function Home() {
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground text-lg">
               🔊
             </div>
-            <span className="font-display text-2xl leading-none">SaySo</span>
+            <span className="font-display text-2xl leading-none">Chatterbox</span>
           </a>
           {status === "unauthenticated" && (
             <a
@@ -333,12 +377,13 @@ export default function Home() {
 
         {/* Hero */}
         <section className="mt-5 sm:mt-7">
-          <h1 className="font-display text-3xl leading-[1.05] sm:text-5xl">
-            An English course built around{" "}
-            <em className="bg-accent px-1.5 italic text-accent-foreground">your actual job</em>.
+          <h1 className="font-display text-3xl leading-[1.15] sm:text-5xl">
+            Your career. Your{" "}
+            <em className="bg-accent px-1.5 italic text-accent-foreground">English</em>{" "}
+            conversation course.
           </h1>
-          <p className="mt-3 max-w-xl text-sm text-muted-foreground sm:text-base">
-            Stop learning English you'll never use. SaySo builds a course just for YOU, based on what you actually need.
+          <p className="mt-4 text-sm text-muted-foreground sm:text-base">
+            Chatterbox turns your LinkedIn profile into a personalized English conversation course focused on what you need to succeed at work.
           </p>
         </section>
 
@@ -354,7 +399,7 @@ export default function Home() {
 
             <div
               ref={scrollRef}
-              className="max-h-[38vh] min-h-[220px] space-y-4 overflow-y-auto px-5 py-5 sm:px-7"
+              className="max-h-[57vh] min-h-[330px] space-y-4 overflow-y-auto px-5 py-5 sm:px-7"
             >
               {messages.map((m) =>
                 m.role === "agent" ? (
@@ -476,8 +521,10 @@ export default function Home() {
               )}
             </div>
 
-            {/* Composer — only for the LinkedIn URL step */}
-            {(step === "awaiting_linkedin" || step === "processing_linkedin") && (
+            {/* Composer — text input for the LinkedIn URL and native language steps */}
+            {(step === "awaiting_linkedin" ||
+              step === "processing_linkedin" ||
+              step === "native_language") && (
               <form
                 onSubmit={handleSubmit}
                 className="border-t border-border bg-background/60 px-3 py-3 sm:px-4 sm:py-4"
@@ -493,10 +540,14 @@ export default function Home() {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={onKey}
-                    placeholder="https://linkedin.com/in/your-handle"
+                    placeholder={
+                      step === "native_language"
+                        ? "e.g. Spanish, Portuguese, Mandarin…"
+                        : "https://linkedin.com/in/your-handle"
+                    }
                     disabled={step === "processing_linkedin"}
                     rows={1}
-                    maxLength={300}
+                    maxLength={step === "native_language" ? 40 : 300}
                     className="min-h-[24px] flex-1 resize-none border-0 bg-transparent py-1.5 text-[15px] leading-snug placeholder:text-muted-foreground/60 focus:outline-none disabled:opacity-60"
                   />
                   <button
@@ -518,7 +569,7 @@ export default function Home() {
         </section>
 
         <footer className="mt-5 flex items-center justify-between border-t border-border pt-4 text-xs text-muted-foreground">
-          <span>© {new Date().getFullYear()} SaySo</span>
+          <span>© {new Date().getFullYear()} Chatterbox</span>
           <span className="font-display text-sm italic">Speak the job you're already doing.</span>
         </footer>
       </div>

@@ -25,6 +25,7 @@ export default async function ProfilePage() {
       company: true,
       companySize: true,
       englishLevel: true,
+      nativeLanguage: true,
       responsibilities: true,
       linkedinUrl: true,
     },
@@ -55,6 +56,7 @@ export default async function ProfilePage() {
       </p>
 
       <div className="rounded-2xl border bg-card px-5">
+        <Field label="Native language" value={user.nativeLanguage} />
         <Field label="Job title" value={user.jobTitle} />
         <Field label="Company" value={user.company} />
         <Field label="Company size" value={user.companySize} />

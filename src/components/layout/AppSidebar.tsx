@@ -25,7 +25,7 @@ export function AppSidebar() {
         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-base text-accent-foreground">
           🔊
         </div>
-        <span className="font-display text-xl leading-none">SaySo</span>
+        <span className="font-display text-xl leading-none">Chatterbox</span>
       </div>
 
       <nav className="flex flex-1 flex-col gap-1">

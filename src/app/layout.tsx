@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SaySo — English courses built around your job",
+  title: "Chatterbox — English courses built around your job",
   description:
     "Drop your LinkedIn, answer a few questions, and get an English course tailored to the meetings, emails, and calls you actually have.",
 };

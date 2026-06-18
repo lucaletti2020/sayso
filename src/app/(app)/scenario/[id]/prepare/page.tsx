@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Check, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-type Sentence = { id: string; text: string };
+type Sentence = { id: string; text: string; translation: string | null };
 
 export default function PreparePage() {
   const { id } = useParams<{ id: string }>();
@@ -122,7 +122,18 @@ export default function PreparePage() {
                   >
                     {isSelected && <Check className="h-3 w-3" strokeWidth={3.5} />}
                   </span>
-                  {s.text}
+                  <span className="flex flex-col gap-0.5">
+                    <span>{s.text}</span>
+                    {s.translation && (
+                      <span
+                        className={`text-xs font-light ${
+                          isSelected ? "text-accent-foreground/70" : "text-muted-foreground"
+                        }`}
+                      >
+                        {s.translation}
+                      </span>
+                    )}
+                  </span>
                 </button>
               );
             })}

@@ -20,44 +20,44 @@ ${linkedinText}
 """`;
 }
 
-export function diagnosticQuestionsPrompt(profile: {
-  firstName: string;
-  jobTitle: string;
-  company: string;
-  companySize?: string | null;
-  responsibilities: string[];
-}) {
-  return `You are an expert English course designer preparing a personalised course for one professional.
+// Generates ONE onboarding question at a time so the second can adapt to the
+// user's first answer. Stage 1 = types of work situations; stage 2 = a
+// follow-up that digs into their specific role, based on the stage-1 answer.
+export function onboardingQuestionPrompt(
+  profile: {
+    firstName: string;
+    jobTitle: string;
+    company: string;
+    companySize?: string | null;
+    responsibilities: string[];
+  },
+  stage: 1 | 2,
+  priorAnswers: { question: string; answer: string }[]
+) {
+  const context = `You are designing a personalised English speaking course for ${profile.firstName}, a ${profile.jobTitle} at ${profile.company} (company size: ${profile.companySize ?? "unknown"}). Responsibilities: ${profile.responsibilities.length ? profile.responsibilities.join("; ") : "unknown"}.`;
 
-Profile:
-- Name: ${profile.firstName}
-- Job title: ${profile.jobTitle}
-- Company: ${profile.company}
-- Company size: ${profile.companySize ?? "unknown"}
-- Responsibilities: ${profile.responsibilities.length ? profile.responsibilities.join("; ") : "unknown"}
+  const task =
+    stage === 1
+      ? `Ask ONE multiple-choice question about the TYPES of work situations where this person needs to speak English (e.g. meetings, client calls, presentations, negotiations, small talk). The options should be concrete situation types specific to their role.`
+      : `So far they told us:
+${priorAnswers.map((a) => `- ${a.question} → ${a.answer}`).join("\n")}
 
-Work through these steps PRIVATELY. Do NOT include any of this reasoning in your output:
-1. Infer the specific situations in which this person most likely needs to speak English at work, given their role, company, and company size.
-2. List the open questions you still have that would most change how you design their course (e.g. who they speak English with, in what formats/situations, what feels hardest, what their goal is).
-3. Select the 4 most useful of those open questions and turn each into a single multiple-choice question the user can answer by tapping.
+Now ask ONE follow-up multiple-choice question that builds on that answer to understand their specific role better — for example who exactly they talk to, or what kind of work those situations involve. Make it clearly follow from what they just said.`;
 
-Requirements for the 4 questions:
-- Each must be specific to THIS person's role and context — never generic filler.
-- Each has 3 or 4 concrete, mutually distinct options.
-- Options must be SHORT phrases, not full sentences. Do NOT start with "I" or a verb. For the question "Who do I speak English with most at work?" write "Clients and sales partners" — NOT "I speak with clients and sales partners". For "What is hardest for me?" write "Speaking on calls" — NOT "I find speaking on calls hard".
-- Keep each option to about 2-5 words. Keep each question under 12 words.
-- Together the questions should clarify: who they speak English with, the formats/situations, and their biggest challenge or goal.
-- Use simple, common words. The user is not a native English speaker, so keep everything short, clear, and easy to read. Avoid idioms and jargon.
+  return `${context}
 
-IMPORTANT — do NOT ask about frequency. Never ask how often, how many times per week/month, or how regularly they speak English. That information is irrelevant.
+${task}
 
-Return ONLY valid JSON in EXACTLY this shape, with no commentary before or after:
-{
-  "questions": [
-    { "question": "string", "options": ["string", "string", "string"] }
-  ]
-}
-The "questions" array must contain exactly 4 items.`;
+Requirements:
+- Specific to THIS person — never generic filler.
+- 3 or 4 concrete, mutually distinct options.
+- Options are SHORT phrases, not full sentences (e.g. "Client calls", "Team meetings"). Do NOT start with "I" or a verb.
+- Keep the question under 12 words and each option 2-5 words.
+- Simple, common words — the user is not a native English speaker. No idioms or jargon.
+- Do NOT ask about frequency (how often / how many times).
+
+Return ONLY valid JSON in EXACTLY this shape:
+{ "question": "string", "options": ["string", "string", "string"] }`;
 }
 
 export function moduleGenerationPrompt(profile: {
@@ -139,8 +139,14 @@ Each group must contain exactly 5 scenarios.`;
 
 export function sentenceGenerationPrompt(
   scenario: { title: string; description: string },
-  profile: { jobTitle: string; englishLevel?: string | null }
+  profile: { jobTitle: string; englishLevel?: string | null; nativeLanguage?: string | null }
 ) {
+  const nativeLanguage = profile.nativeLanguage?.trim();
+  const translationGuide =
+    nativeLanguage && nativeLanguage.toLowerCase() !== "english"
+      ? `For each sentence, also provide a natural translation into ${nativeLanguage} in a "translation" field.`
+      : `Leave the "translation" field as an empty string.`;
+
   const level = profile.englishLevel ?? "Intermediate";
   const levelGuide: Record<string, string> = {
     beginner:
@@ -165,9 +171,10 @@ Guidelines:
 - Match the user's English level: ${guidance}
 - Cover the range of moments: opening, asking questions, clarifying, responding, being polite, and closing.
 - Specific to THIS situation and role — phrases they could use almost word-for-word.
+- ${translationGuide}
 
-Return ONLY valid JSON in exactly this shape:
-{ "sentences": ["sentence 1", "sentence 2", "... 10 in total"] }`;
+Return ONLY valid JSON in exactly this shape (10 items):
+{ "sentences": [ { "text": "the English sentence", "translation": "translation or empty string" } ] }`;
 }
 
 // Meta-prompt: asks the model to WRITE the voice agent's system prompt for a

@@ -55,6 +55,7 @@ model User {
   company          String?
   companySize      String?
   englishLevel     String?
+  nativeLanguage   String?
   responsibilities String?         @db.Text
   onboardingDone   Boolean         @default(false)
   createdAt        DateTime        @default(now())
@@ -98,11 +99,12 @@ enum ScenarioStatus {
 }
 
 model PracticeSentence {
-  id         String   @id @default(cuid())
-  scenarioId String
-  text       String
-  audioUrl   String?
-  orderIndex Int
+  id          String   @id @default(cuid())
+  scenarioId  String
+  text        String
+  translation String?
+  audioUrl    String?
+  orderIndex  Int
   scenario   Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
 
   @@index([scenarioId])

@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
       company: profile.company,
       companySize: profile.companySize ?? null,
       englishLevel,
+      nativeLanguage: profile.nativeLanguage ?? null,
       responsibilities: profile.responsibilities?.join("\n"),
       linkedinUrl: profile.linkedinUrl ?? null,
       onboardingDone: true,

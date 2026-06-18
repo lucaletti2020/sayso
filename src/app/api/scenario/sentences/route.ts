@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { jobTitle: true, englishLevel: true },
+    select: { jobTitle: true, englishLevel: true, nativeLanguage: true },
   });
 
   const openai = getAzureOpenAI();
@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
         content: sentenceGenerationPrompt(scenario, {
           jobTitle: user?.jobTitle ?? "professional",
           englishLevel: user?.englishLevel,
+          nativeLanguage: user?.nativeLanguage,
         }),
       },
     ],
@@ -49,30 +50,40 @@ export async function POST(req: NextRequest) {
   });
 
   const raw = completion.choices[0].message.content ?? "[]";
-  let texts: string[] = [];
+  let items: { text: string; translation?: string }[] = [];
   try {
     const parsed = JSON.parse(raw);
-    // Be robust to the model wrapping the array under various keys
-    // (e.g. "sentences", "content") — take the first string array we find.
+    // Be robust to the model wrapping the array under various keys.
     const candidate = Array.isArray(parsed)
       ? parsed
       : parsed.sentences ??
         parsed.content ??
         Object.values(parsed).find((v) => Array.isArray(v)) ??
         [];
-    texts = (candidate as unknown[]).filter((t): t is string => typeof t === "string");
+    items = (candidate as unknown[])
+      .map((c) =>
+        typeof c === "string"
+          ? { text: c, translation: "" }
+          : { text: (c as { text?: string }).text ?? "", translation: (c as { translation?: string }).translation ?? "" }
+      )
+      .filter((c) => c.text.trim());
   } catch {
     return NextResponse.json({ error: "Failed to parse sentences" }, { status: 500 });
   }
 
-  if (texts.length === 0) {
+  if (items.length === 0) {
     return NextResponse.json({ error: "No sentences generated" }, { status: 500 });
   }
 
   const sentences = await Promise.all(
-    texts.slice(0, 10).map((text, i) =>
+    items.slice(0, 10).map((item, i) =>
       prisma.practiceSentence.create({
-        data: { scenarioId, text, orderIndex: i },
+        data: {
+          scenarioId,
+          text: item.text,
+          translation: item.translation?.trim() || null,
+          orderIndex: i,
+        },
       })
     )
   );
