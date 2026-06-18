@@ -35,22 +35,22 @@ export default async function ScenarioPage({ params }: { params: Promise<{ id: s
       <p className="text-muted-foreground mb-8">{scenario.description}</p>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Link href={`/scenario/${id}/simulation`} className="block">
-          <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-6 h-full hover:border-primary/50 transition-colors cursor-pointer">
-            <Mic className="h-8 w-8 mb-4 text-primary" />
-            <h2 className="font-semibold mb-1">Go straight to conversation</h2>
-            <p className="text-sm text-muted-foreground">
-              Jump right in — have a live voice conversation with your AI practice partner.
-            </p>
-          </div>
-        </Link>
-
         <Link href={`/scenario/${id}/prepare`} className="block">
           <div className="rounded-2xl border-2 border-muted bg-muted/30 p-6 h-full hover:border-muted-foreground/30 transition-colors cursor-pointer">
             <BookOpen className="h-8 w-8 mb-4 text-muted-foreground" />
             <h2 className="font-semibold mb-1">Prepare first</h2>
             <p className="text-sm text-muted-foreground">
               Learn useful sentences, listen to pronunciation, and practise before the conversation.
+            </p>
+          </div>
+        </Link>
+
+        <Link href={`/scenario/${id}/simulation`} className="block">
+          <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-6 h-full hover:border-primary/50 transition-colors cursor-pointer">
+            <Mic className="h-8 w-8 mb-4 text-primary" />
+            <h2 className="font-semibold mb-1">Start conversation</h2>
+            <p className="text-sm text-muted-foreground">
+              Jump right in — have a live voice conversation with your AI practice partner.
             </p>
           </div>
         </Link>

@@ -62,8 +62,8 @@
 
   --cream: oklch(0.978 0.012 95);
   --ink: oklch(0.18 0.035 260);
-  /* Brand accent — light blue (#38b6ff) */
-  --lime: #38b6ff;
+  /* Brand accent — green */
+  --lime: oklch(0.88 0.22 124);
   --lime-foreground: oklch(0.2 0.04 260);
   --coral: oklch(0.72 0.18 25);
 

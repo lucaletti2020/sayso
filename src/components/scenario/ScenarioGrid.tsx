@@ -50,8 +50,8 @@ function ScenarioCard({ scenario }: { scenario: Scenario }) {
   );
 }
 
-function GroupCard({ group }: { group: Group }) {
-  const [open, setOpen] = useState(true);
+function GroupCard({ group, defaultOpen }: { group: Group; defaultOpen: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   const completed = group.scenarios.filter((s) => s.status === "COMPLETED").length;
 
   return (
@@ -89,10 +89,16 @@ export function ScenarioGrid({ groups }: { groups: Group[] }) {
       </p>
     );
   }
+  // The "current" module is the first one that still has unfinished scenarios.
+  // For a brand-new user that's the top module; once a module is fully done,
+  // the next one becomes current. Falls back to the first module.
+  const currentGroupId =
+    groups.find((g) => g.scenarios.some((s) => s.status !== "COMPLETED"))?.id ?? groups[0]?.id;
+
   return (
     <div className="flex flex-col gap-4">
       {groups.map((g) => (
-        <GroupCard key={g.id} group={g} />
+        <GroupCard key={g.id} group={g} defaultOpen={g.id === currentGroupId} />
       ))}
     </div>
   );
