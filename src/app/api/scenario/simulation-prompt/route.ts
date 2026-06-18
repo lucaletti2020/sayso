@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { name: true, jobTitle: true, company: true },
+    select: { name: true, jobTitle: true, company: true, englishLevel: true },
   });
 
   const openai = getAzureOpenAI();
@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
             firstName: user?.name?.split(" ")[0] ?? "the user",
             jobTitle: user?.jobTitle ?? "a professional",
             company: user?.company ?? "their company",
+            englishLevel: user?.englishLevel,
           },
           { title: scenario.title, description: scenario.description }
         ),

@@ -10,7 +10,6 @@ type Feedback = {
   fluency: number;
   vocabulary: number;
   grammar: number;
-  highlights: string[];
   improvements: string[];
   summary: string;
 };
@@ -80,27 +79,15 @@ export default async function FeedbackPage({
         <p className="text-sm text-center text-muted-foreground">{feedback.summary}</p>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-4 mb-8">
-        <div className="rounded-xl border p-4">
-          <h3 className="text-sm font-semibold text-green-700 mb-3">What went well</h3>
-          <ul className="flex flex-col gap-2">
-            {feedback.highlights?.map((h, i) => (
-              <li key={i} className="text-sm flex gap-2">
-                <span className="text-green-500 shrink-0">✓</span> {h}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="rounded-xl border p-4">
-          <h3 className="text-sm font-semibold text-blue-700 mb-3">To improve</h3>
-          <ul className="flex flex-col gap-2">
-            {feedback.improvements?.map((imp, i) => (
-              <li key={i} className="text-sm flex gap-2">
-                <span className="text-blue-500 shrink-0">→</span> {imp}
-              </li>
-            ))}
-          </ul>
-        </div>
+      <div className="rounded-2xl border p-6 mb-8">
+        <h3 className="text-sm font-semibold text-blue-700 mb-3">How to improve</h3>
+        <ul className="flex flex-col gap-2">
+          {feedback.improvements?.map((imp, i) => (
+            <li key={i} className="text-sm flex gap-2">
+              <span className="text-blue-500 shrink-0">→</span> {imp}
+            </li>
+          ))}
+        </ul>
       </div>
 
       <div className="flex gap-3">

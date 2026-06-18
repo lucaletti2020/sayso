@@ -180,10 +180,23 @@ Return ONLY valid JSON in exactly this shape (10 items):
 // Meta-prompt: asks the model to WRITE the voice agent's system prompt for a
 // specific scenario, strictly following the fixed two-user-turn format.
 export function simulationPromptBuilderPrompt(
-  profile: { firstName: string; jobTitle: string; company: string },
+  profile: { firstName: string; jobTitle: string; company: string; englishLevel?: string | null },
   scenario: { title: string; description: string }
 ) {
-  return `You are designing the system prompt for an AI voice agent. The agent will role-play a short English speaking practice call with ${profile.firstName}, who is a ${profile.jobTitle} at ${profile.company}.
+  const level = profile.englishLevel ?? "Intermediate";
+  const levelSpeech: Record<string, string> = {
+    beginner:
+      "The user is a BEGINNER in English. Speak slowly and clearly (but still naturally). Use short, simple sentences, basic everyday vocabulary, and simple grammar. Avoid idioms, phrasal verbs, and complex structures.",
+    intermediate:
+      "The user is at an INTERMEDIATE level. Speak at a calm, clear pace. Use common, everyday vocabulary and straightforward sentences. Go easy on idioms and rare words.",
+    "upper intermediate":
+      "The user is UPPER INTERMEDIATE. Speak at a natural pace. You can use a good range of vocabulary and varied sentence structures, with the occasional idiom.",
+    advanced:
+      "The user is ADVANCED. Speak naturally at a normal pace. Feel free to use rich vocabulary, idiomatic expressions, and more complex sentence structures.",
+  };
+  const speechGuidance = levelSpeech[level.toLowerCase()] ?? levelSpeech["intermediate"];
+
+  return `You are designing the system prompt for an AI voice agent. The agent will role-play a short English speaking practice call with ${profile.firstName}, who is a ${profile.jobTitle} at ${profile.company}. The user's English level is ${level}.
 
 The scenario to practise is:
 "${scenario.title}" — ${scenario.description}
@@ -223,27 +236,35 @@ Conversation flow:
 
 Additional rules:
 
+* ${speechGuidance}
 * If the user asks you to repeat something, repeat it and immediately continue the conversation from where it stopped.
 * Keep responses short and conversational.
 * Aim for about 10 seconds of speaking time per response.
-* Do not change the conversation flow or add extra topics/questions.`;
+* Do not change the conversation flow or add extra topics/questions.
+
+IMPORTANT: Include the level-adaptation rule above ("${speechGuidance}") verbatim as the first item in the "Additional rules" section of the prompt you output.`;
 }
 
 export function simulationFeedbackPrompt(transcript: string, scenario: { title: string }) {
-  return `You are an expert English language coach. Analyse this conversation transcript from a professional English speaking simulation.
+  return `You are an expert teacher of English as a foreign language. Analyse what the LEARNER said in this conversation transcript from a professional English speaking simulation. Only assess the learner's lines, not the AI partner's.
 Scenario: "${scenario.title}"
 
 Transcript:
 ${transcript}
 
+Score fluency, vocabulary, and grammar from 0-100.
+
+For "improvements": act as a supportive expert teacher.
+- Point out the specific vocabulary and grammar MISTAKES the learner actually made. For each, quote the words they used, then give a simple, clear correction or better way to say it.
+- Keep each point short and easy to understand (the learner is not a native speaker). Use plain language.
+- If the learner made NO real mistakes, do NOT invent any. Instead return a single item that congratulates them warmly and adds one brief encouraging comment.
+
 Return ONLY valid JSON with this shape:
 {
-  "overallScore": 0-100,
   "fluency": 0-100,
   "vocabulary": 0-100,
   "grammar": 0-100,
-  "highlights": ["positive observation 1", "positive observation 2", "positive observation 3"],
-  "improvements": ["specific improvement 1", "specific improvement 2"],
+  "improvements": ["point 1", "point 2"],
   "summary": "2-3 sentence overall assessment"
 }`;
 }

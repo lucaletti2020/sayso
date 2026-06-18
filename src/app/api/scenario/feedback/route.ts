@@ -35,6 +35,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to parse feedback" }, { status: 500 });
   }
 
+  // Overall score = average of fluency, vocabulary, and grammar.
+  const overallScore = Math.round(
+    ((feedback.fluency ?? 0) + (feedback.vocabulary ?? 0) + (feedback.grammar ?? 0)) / 3
+  );
+  feedback.overallScore = overallScore;
+
   const attempt = await prisma.userAttempt.create({
     data: {
       userId,
@@ -42,7 +48,7 @@ export async function POST(req: NextRequest) {
       type: "SIMULATION",
       transcript,
       feedbackJson: feedback,
-      score: typeof feedback.overallScore === "number" ? feedback.overallScore : null,
+      score: overallScore,
     },
   });
 
