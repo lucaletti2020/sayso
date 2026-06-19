@@ -609,9 +609,12 @@ export default function Home() {
           </p>
         </section>
 
-        <footer className="mt-5 flex items-center justify-between border-t border-border pt-4 text-xs text-muted-foreground">
+        <footer className="mt-5 flex items-center justify-between gap-3 border-t border-border pt-4 text-xs text-muted-foreground">
           <span>© {new Date().getFullYear()} TalktheTalk</span>
-          <span className="font-display text-sm italic">Speak the job you're already doing.</span>
+          <span className="flex items-center gap-3">
+            <a href="/terms" className="hover:text-foreground">Terms</a>
+            <a href="/privacy" className="hover:text-foreground">Privacy</a>
+          </span>
         </footer>
       </div>
     </main>

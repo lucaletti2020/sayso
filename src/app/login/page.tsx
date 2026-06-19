@@ -42,8 +42,10 @@ export default function LoginPage() {
           )}
         </div>
 
-        <p className="mt-6 text-center font-display text-sm italic text-muted-foreground">
-          Speak the job you're already doing.
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          By continuing, you agree to our{" "}
+          <a href="/terms" className="underline">Terms</a> and{" "}
+          <a href="/privacy" className="underline">Privacy Policy</a>.
         </p>
       </div>
     </main>
