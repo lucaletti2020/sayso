@@ -625,7 +625,7 @@ function AgentBubble({ text }: { text: string }) {
   return (
     <div className="flex items-start gap-3">
       <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary font-display text-base text-primary-foreground">
-        S
+        T
       </div>
       <div className="inline-block w-fit max-w-[85%] whitespace-pre-wrap pt-0.5 text-[15px] leading-relaxed text-foreground">
         {text}
@@ -648,7 +648,7 @@ function TypingBubble() {
   return (
     <div className="flex items-start gap-3">
       <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary font-display text-base text-primary-foreground">
-        S
+        T
       </div>
       <div className="flex h-8 items-center gap-1 rounded-2xl bg-muted px-3">
         <Dot delay="0ms" />
