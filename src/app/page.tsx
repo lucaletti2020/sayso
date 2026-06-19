@@ -416,9 +416,9 @@ export default function Home() {
         {/* Hero */}
         <section className="mt-5 sm:mt-7">
           <h1 className="font-display text-3xl leading-[1.15] sm:text-5xl">
-            Your career. Your{" "}
-            <em className="bg-accent px-1.5 italic text-accent-foreground">English</em>{" "}
-            conversation course.
+            English{" "}
+            <em className="bg-accent px-1.5 italic text-accent-foreground">conversation practice</em>{" "}
+            for work, based on your LinkedIn profile.
           </h1>
           <p className="mt-4 text-sm text-muted-foreground sm:text-base">
             Chatterbox turns your LinkedIn profile into a personalized English conversation course focused on what you need to succeed at work.
