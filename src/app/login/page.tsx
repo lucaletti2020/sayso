@@ -17,7 +17,7 @@ export default function LoginPage() {
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-2xl text-accent-foreground">
             🔊
           </div>
-          <h1 className="font-display text-4xl leading-none">Chatterbox</h1>
+          <h1 className="font-display text-4xl leading-none">TalktheTalk</h1>
           <p className="mt-3 text-sm text-muted-foreground">
             Sign in to pick up your personalised course.
           </p>

@@ -401,7 +401,7 @@ export default function Home() {
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground text-lg">
               🔊
             </div>
-            <span className="font-display text-2xl leading-none">Chatterbox</span>
+            <span className="font-display text-2xl leading-none">TalktheTalk</span>
           </a>
           {status === "unauthenticated" && (
             <a
@@ -421,7 +421,7 @@ export default function Home() {
             for work, based on your LinkedIn profile.
           </h1>
           <p className="mt-4 text-sm text-muted-foreground sm:text-base">
-            Chatterbox turns your LinkedIn profile into a personalized English conversation course focused on what you need to succeed at work.
+            TalktheTalk turns your LinkedIn profile into a personalized English conversation course focused on what you need to succeed at work.
           </p>
         </section>
 
@@ -610,7 +610,7 @@ export default function Home() {
         </section>
 
         <footer className="mt-5 flex items-center justify-between border-t border-border pt-4 text-xs text-muted-foreground">
-          <span>© {new Date().getFullYear()} Chatterbox</span>
+          <span>© {new Date().getFullYear()} TalktheTalk</span>
           <span className="font-display text-sm italic">Speak the job you're already doing.</span>
         </footer>
       </div>
