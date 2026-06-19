@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getAzureOpenAI, DEPLOYMENT } from "@/lib/azure-openai";
 import { simulationFeedbackPrompt } from "@/lib/prompts";
+import { sendFeedbackReadyEmail, APP_URL } from "@/lib/email";
 
 // Generates feedback from a finished conversation transcript and saves the
 // attempt. Called by the simulation page when the realtime call ends.
@@ -59,7 +60,24 @@ export async function POST(req: NextRequest) {
 
   // The timestamp uniquely identifies this attempt in the feedback URL, so
   // repeated attempts on the same day each have their own page.
-  return NextResponse.json({ feedback, timestamp: attempt.createdAt.getTime() });
+  const timestamp = attempt.createdAt.getTime();
+
+  // Email the user a link to their feedback (best-effort).
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true, name: true },
+  });
+  if (user?.email) {
+    await sendFeedbackReadyEmail(
+      user.email,
+      user.name,
+      scenario.title,
+      `${APP_URL}/scenario/${scenarioId}/feedback/${timestamp}`,
+      overallScore
+    );
+  }
+
+  return NextResponse.json({ feedback, timestamp });
 }
 
 export async function GET(req: NextRequest) {

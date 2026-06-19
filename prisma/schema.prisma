@@ -58,6 +58,7 @@ model User {
   nativeLanguage   String?
   responsibilities String?         @db.Text
   onboardingDone   Boolean         @default(false)
+  reengageEmailSentAt DateTime?
   createdAt        DateTime        @default(now())
   accounts         Account[]
   sessions         Session[]

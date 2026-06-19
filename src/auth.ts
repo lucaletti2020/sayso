@@ -3,6 +3,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import LinkedIn from "next-auth/providers/linkedin";
 import Google from "next-auth/providers/google";
 import { prisma } from "@/lib/prisma";
+import { sendWelcomeEmail } from "@/lib/email";
 
 const providers: NextAuthConfig["providers"] = [];
 
@@ -33,6 +34,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     session({ session, user }) {
       session.user.id = user.id;
       return session;
+    },
+  },
+  events: {
+    // Fires once, when a brand-new user is created → send the welcome email.
+    async createUser({ user }) {
+      if (user.email) await sendWelcomeEmail(user.email, user.name);
     },
   },
   pages: {
