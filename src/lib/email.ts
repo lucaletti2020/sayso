@@ -43,7 +43,7 @@ export async function sendWelcomeEmail(to: string, name?: string | null) {
     layout(
       `Welcome, ${first}!`,
       `<p>Great to have you. Chatterbox builds an English speaking course around your real job — then lets you practise the conversations you actually have at work.</p>
-       <p>Paste your LinkedIn profile to get your personalised course, and start your first conversation whenever you're ready.</p>`,
+       <p>5 minutes a day goes a long way!</p>`,
       { label: "Start my course", url: `${APP_URL}/home` }
     )
   );
