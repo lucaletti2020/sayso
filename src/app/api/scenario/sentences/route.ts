@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getAzureOpenAI, DEPLOYMENT } from "@/lib/azure-openai";
 import { sentenceGenerationPrompt } from "@/lib/prompts";
+import { cefrBandForLevel, cefrGuidance, type CefrBand } from "@/lib/cefr";
+import { readObjectives } from "@/lib/objectives";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
@@ -29,8 +31,11 @@ export async function POST(req: NextRequest) {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { jobTitle: true, englishLevel: true, nativeLanguage: true },
+    select: { jobTitle: true, englishLevel: true, cefrLevel: true, nativeLanguage: true },
   });
+
+  const band = (user?.cefrLevel as CefrBand) ?? cefrBandForLevel(user?.englishLevel);
+  const obj = readObjectives(scenario.objectives);
 
   const openai = getAzureOpenAI();
   const completion = await openai.chat.completions.create({
@@ -38,11 +43,22 @@ export async function POST(req: NextRequest) {
     messages: [
       {
         role: "user",
-        content: sentenceGenerationPrompt(scenario, {
-          jobTitle: user?.jobTitle ?? "professional",
-          englishLevel: user?.englishLevel,
-          nativeLanguage: user?.nativeLanguage,
-        }),
+        content: sentenceGenerationPrompt(
+          {
+            title: scenario.title,
+            description: scenario.description,
+            canDo: obj.canDo,
+            functions: obj.functions,
+            grammarFocus: obj.grammarFocus,
+            targetPhrases: obj.targetPhrases,
+          },
+          {
+            jobTitle: user?.jobTitle ?? "professional",
+            nativeLanguage: user?.nativeLanguage,
+            cefrBand: band,
+            cefrGuidance: cefrGuidance(band),
+          }
+        ),
       },
     ],
     response_format: { type: "json_object" },

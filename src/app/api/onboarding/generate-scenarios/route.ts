@@ -2,7 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getAzureOpenAI, DEPLOYMENT } from "@/lib/azure-openai";
 import { scenarioGenerationPrompt } from "@/lib/prompts";
+import { cefrBandForLevel, cefrGuidance } from "@/lib/cefr";
 import { prisma } from "@/lib/prisma";
+
+type GeneratedScenario = {
+  title: string;
+  description: string;
+  canDo?: string;
+  functions?: string[];
+  grammarFocus?: string;
+  targetPhrases?: string[];
+};
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -16,6 +26,15 @@ export async function POST(req: NextRequest) {
   if (!Array.isArray(modules) || modules.length === 0) {
     return NextResponse.json({ error: "No modules selected" }, { status: 400 });
   }
+
+  // Determine the CEFR band from the self-reported level (the fixed final
+  // question), and use it to ground generation.
+  const LEVELS = ["Beginner", "Intermediate", "Upper intermediate", "Advanced"];
+  const englishLevel =
+    (answers as { question: string; answer: string }[] | undefined)?.find((a) =>
+      LEVELS.some((l) => a.answer?.toLowerCase().includes(l.toLowerCase()))
+    )?.answer ?? null;
+  const cefrBand = cefrBandForLevel(englishLevel);
 
   const openai = getAzureOpenAI();
   const completion = await openai.chat.completions.create({
@@ -31,17 +50,19 @@ export async function POST(req: NextRequest) {
           responsibilities: profile.responsibilities ?? [],
           answers: answers ?? [],
           modules,
+          cefrBand,
+          cefrGuidance: cefrGuidance(cefrBand),
         }),
       },
     ],
     response_format: { type: "json_object" },
     temperature: 0.7,
-    max_completion_tokens: 4000,
+    max_completion_tokens: 6000,
   });
 
   const raw = completion.choices[0].message.content ?? "{}";
   const parsed = JSON.parse(raw) as {
-    groups: { title: string; scenarios: { title: string; description: string }[] }[];
+    groups: { title: string; scenarios: GeneratedScenario[] }[];
   };
 
   // Drop duplicate modules (case-insensitive on title) and cap at 8 — flexible
@@ -56,14 +77,6 @@ export async function POST(req: NextRequest) {
     })
     .slice(0, 8);
 
-  // Pull the English level out of the questionnaire answers (the fixed final
-  // question), so it can be stored and reused to tune later AI generations.
-  const LEVELS = ["Beginner", "Intermediate", "Upper intermediate", "Advanced"];
-  const englishLevel =
-    (answers as { question: string; answer: string }[] | undefined)?.find((a) =>
-      LEVELS.some((l) => a.answer?.toLowerCase().includes(l.toLowerCase()))
-    )?.answer ?? null;
-
   // Persist to DB
   await prisma.user.update({
     where: { id: userId },
@@ -72,6 +85,7 @@ export async function POST(req: NextRequest) {
       company: profile.company,
       companySize: profile.companySize ?? null,
       englishLevel,
+      cefrLevel: cefrBand,
       nativeLanguage: profile.nativeLanguage ?? null,
       responsibilities: profile.responsibilities?.join("\n"),
       linkedinUrl: profile.linkedinUrl ?? null,
@@ -90,11 +104,18 @@ export async function POST(req: NextRequest) {
         title: group.title,
         orderIndex: i,
         scenarios: {
-          create: group.scenarios.map((s, j) => ({
+          create: group.scenarios.map((s) => ({
             userId: userId,
             title: s.title,
             description: s.description,
             status: "UNLOCKED",
+            objectives: {
+              cefrLevel: cefrBand,
+              canDo: s.canDo ?? null,
+              functions: s.functions ?? [],
+              grammarFocus: s.grammarFocus ?? null,
+              targetPhrases: s.targetPhrases ?? [],
+            },
           })),
         },
       },

@@ -4,7 +4,8 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Mic, BookOpen } from "lucide-react";
+import { ArrowLeft, Mic, BookOpen, Target } from "lucide-react";
+import { readObjectives } from "@/lib/objectives";
 
 export default async function ScenarioPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -18,6 +19,8 @@ export default async function ScenarioPage({ params }: { params: Promise<{ id: s
 
   if (!scenario || scenario.userId !== session.user.id) notFound();
 
+  const objectives = readObjectives(scenario.objectives);
+
   return (
     <div className="max-w-2xl mx-auto">
       <Link
@@ -28,11 +31,24 @@ export default async function ScenarioPage({ params }: { params: Promise<{ id: s
         Back to my course
       </Link>
 
-      <div className="mb-2">
+      <div className="mb-2 flex items-center gap-2">
         <Badge variant="secondary" className="text-xs">{scenario.group.title}</Badge>
+        {objectives.cefrLevel && (
+          <Badge className="bg-accent text-accent-foreground text-xs">CEFR {objectives.cefrLevel}</Badge>
+        )}
       </div>
       <h1 className="font-display text-4xl leading-tight mb-3">{scenario.title}</h1>
-      <p className="text-muted-foreground mb-8">{scenario.description}</p>
+      <p className="text-muted-foreground mb-4">{scenario.description}</p>
+
+      {objectives.canDo && (
+        <div className="mb-8 flex items-start gap-2 rounded-xl border bg-muted/30 p-4">
+          <Target className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">You'll practise</p>
+            <p className="text-sm">{objectives.canDo}</p>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Link href={`/scenario/${id}/prepare`} className="block">

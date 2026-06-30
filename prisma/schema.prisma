@@ -55,6 +55,7 @@ model User {
   company          String?
   companySize      String?
   englishLevel     String?
+  cefrLevel        String?
   nativeLanguage   String?
   responsibilities String?         @db.Text
   onboardingDone   Boolean         @default(false)
@@ -85,6 +86,7 @@ model Scenario {
   description      String              @db.Text
   status           ScenarioStatus      @default(UNLOCKED)
   simulationPrompt String?             @db.Text
+  objectives       Json?
   group       ScenarioGroup       @relation(fields: [groupId], references: [id], onDelete: Cascade)
   sentences   PracticeSentence[]
   attempts    UserAttempt[]

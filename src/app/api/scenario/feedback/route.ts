@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getAzureOpenAI, DEPLOYMENT } from "@/lib/azure-openai";
 import { simulationFeedbackPrompt } from "@/lib/prompts";
+import { readObjectives } from "@/lib/objectives";
 import { sendFeedbackReadyEmail, APP_URL } from "@/lib/email";
 
 // Generates feedback from a finished conversation transcript and saves the
@@ -20,10 +21,22 @@ export async function POST(req: NextRequest) {
   const scenario = await prisma.scenario.findFirst({ where: { id: scenarioId, userId } });
   if (!scenario) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  const obj = readObjectives(scenario.objectives);
+
   const openai = getAzureOpenAI();
   const completion = await openai.chat.completions.create({
     model: DEPLOYMENT,
-    messages: [{ role: "user", content: simulationFeedbackPrompt(transcript, { title: scenario.title }) }],
+    messages: [
+      {
+        role: "user",
+        content: simulationFeedbackPrompt(transcript, {
+          title: scenario.title,
+          canDo: obj.canDo,
+          functions: obj.functions,
+          cefrBand: obj.cefrLevel,
+        }),
+      },
+    ],
     response_format: { type: "json_object" },
     temperature: 0.5,
     max_completion_tokens: 800,

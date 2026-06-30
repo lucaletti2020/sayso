@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getAzureOpenAI, DEPLOYMENT } from "@/lib/azure-openai";
 import { simulationPromptBuilderPrompt } from "@/lib/prompts";
+import { readObjectives } from "@/lib/objectives";
 import { prisma } from "@/lib/prisma";
 
 // Returns the voice-agent system prompt for a scenario. The prompt is generated
@@ -46,7 +47,15 @@ export async function POST(req: NextRequest) {
             company: user?.company ?? "their company",
             englishLevel: user?.englishLevel,
           },
-          { title: scenario.title, description: scenario.description }
+          (() => {
+            const o = readObjectives(scenario.objectives);
+            return {
+              title: scenario.title,
+              description: scenario.description,
+              canDo: o.canDo,
+              functions: o.functions,
+            };
+          })()
         ),
       },
     ],

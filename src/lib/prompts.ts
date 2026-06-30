@@ -112,25 +112,31 @@ export function scenarioGenerationPrompt(profile: {
   responsibilities: string[];
   answers: { question: string; answer: string }[];
   modules: { title: string; description: string }[];
+  cefrBand: string;
+  cefrGuidance: string;
 }) {
-  return `You are creating a personalised English speaking course for ${profile.firstName}, a ${profile.jobTitle} at ${profile.company} (company size: ${profile.companySize ?? "unknown"}).
+  return `You are an expert designer of English for Specific Purposes (ESP) courses, working to CEFR standards. You are creating a personalised English speaking course for ${profile.firstName}, a ${profile.jobTitle} at ${profile.company} (company size: ${profile.companySize ?? "unknown"}).
 
 Their responsibilities: ${profile.responsibilities.join(", ")}.
 
 What they told us about their English needs (answers to a short questionnaire):
 ${profile.answers.map((a, i) => `${i + 1}. ${a.question}\n   → ${a.answer}`).join("\n")}
 
+The learner's level:
+${profile.cefrGuidance}
+
 The user has chosen the following ${profile.modules.length} modules for their course:
 ${profile.modules.map((m, i) => `${i + 1}. ${m.title} — ${m.description}`).join("\n")}
 
-For EACH chosen module, generate exactly 5 professional speaking scenarios — concrete, realistic situations in which this person would need to speak English, specific to their role and industry. Keep every scenario within the theme of its module.
+For EACH chosen module, generate exactly 5 professional speaking scenarios — concrete, realistic situations in which this person would need to speak English, specific to their role and industry. Keep every scenario within the theme of its module, and calibrate every scenario to CEFR ${profile.cefrBand}.
 
-Scenario title rules:
-- Each title must still read as a CLEAR, specific situation — usually an action or a moment (e.g. "First Call With a Prospect", "Handling a Price Objection", "Giving Feedback to a Team Member").
-- Keep it short: aim for 4-6 words. Drop only the qualifiers that are NOT essential — e.g. write "First Call With a Prospect" (good), NOT "First Call With a Mid-Market Prospect" (too long) and NOT "Prospect Call" or "Budget Concerns" (too vague — these lost the situation).
-- Use simple, common words (the user is not a native English speaker). No jargon or idioms.
-
-The description is one short, simple sentence on the situation and what they'll practise.
+For each scenario, define clear, measurable learning objectives:
+- "title": a CLEAR, specific situation (an action or a moment), 4-6 words, simple common words (e.g. "First Call With a Prospect", "Handling a Price Objection"). No jargon or idioms.
+- "description": one short, simple sentence on the situation and what they'll practise.
+- "canDo": a single CEFR can-do statement this scenario practises, written for level ${profile.cefrBand} and phrased as "Can ..." (e.g. "Can politely interrupt and ask for clarification in a meeting").
+- "functions": 2-4 communicative functions practised (e.g. "asking for clarification", "making polite requests", "disagreeing diplomatically").
+- "grammarFocus": one key grammar point appropriate to ${profile.cefrBand} (e.g. "polite requests with could/would", "second conditional").
+- "targetPhrases": 4-6 useful phrases or chunks the learner should be able to use, written at ${profile.cefrBand} level.
 
 Return ONLY valid JSON in this exact shape, with one group per chosen module, in the same order:
 {
@@ -138,7 +144,14 @@ Return ONLY valid JSON in this exact shape, with one group per chosen module, in
     {
       "title": "Module title (exactly as given)",
       "scenarios": [
-        { "title": "Scenario title", "description": "One simple sentence describing the situation and what they'll practise." }
+        {
+          "title": "Scenario title",
+          "description": "One simple sentence.",
+          "canDo": "Can ...",
+          "functions": ["...", "..."],
+          "grammarFocus": "...",
+          "targetPhrases": ["...", "..."]
+        }
       ]
     }
   ]
@@ -147,8 +160,20 @@ Each group must contain exactly 5 scenarios.`;
 }
 
 export function sentenceGenerationPrompt(
-  scenario: { title: string; description: string },
-  profile: { jobTitle: string; englishLevel?: string | null; nativeLanguage?: string | null }
+  scenario: {
+    title: string;
+    description: string;
+    canDo?: string | null;
+    functions?: string[];
+    grammarFocus?: string | null;
+    targetPhrases?: string[];
+  },
+  profile: {
+    jobTitle: string;
+    nativeLanguage?: string | null;
+    cefrBand: string;
+    cefrGuidance: string;
+  }
 ) {
   const nativeLanguage = profile.nativeLanguage?.trim();
   const translationGuide =
@@ -156,30 +181,32 @@ export function sentenceGenerationPrompt(
       ? `For each sentence, also provide a natural translation into ${nativeLanguage} in a "translation" field.`
       : `Leave the "translation" field as an empty string.`;
 
-  const level = profile.englishLevel ?? "Intermediate";
-  const levelGuide: Record<string, string> = {
-    beginner:
-      "Use very simple, short sentences (about 5-8 words). Basic, high-frequency words and present-simple grammar. No idioms or complex clauses.",
-    intermediate:
-      "Use short, everyday sentences (about 6-10 words). Common workplace vocabulary and straightforward grammar. Avoid idioms.",
-    "upper intermediate":
-      "Use natural, fairly concise sentences (about 8-14 words). Some professional vocabulary and varied grammar (polite requests, conditionals) are fine.",
-    advanced:
-      "Use natural, polished sentences (about 10-16 words). Precise professional vocabulary and nuanced, diplomatic phrasing are welcome.",
-  };
-  const guidance = levelGuide[level.toLowerCase()] ?? levelGuide["intermediate"];
+  const objectives = [
+    scenario.canDo ? `- Objective (can-do): ${scenario.canDo}` : "",
+    scenario.functions?.length ? `- Functions to practise: ${scenario.functions.join(", ")}` : "",
+    scenario.grammarFocus ? `- Grammar focus: ${scenario.grammarFocus}` : "",
+    scenario.targetPhrases?.length ? `- Target phrases to build on: ${scenario.targetPhrases.join("; ")}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
-  return `A ${profile.jobTitle} (English level: ${level}) is preparing for this work situation where they must speak English:
+  return `A ${profile.jobTitle} is preparing for this work situation where they must speak English:
 "${scenario.title}" — ${scenario.description}
 
-List the 10 MOST useful English sentences they will actually need in this exact situation — the key phrases they would really say.
+The learner's level:
+${profile.cefrGuidance}
+
+Learning objectives for this scenario:
+${objectives || "- (none provided)"}
+
+List the 10 MOST useful English sentences they will actually need in this situation — the key phrases they would really say, which realise the functions and objectives above.
 
 Guidelines:
-- REALISTIC and natural — real things a person says in this situation, not textbook examples.
-- SHORT — keep every sentence brief and easy to say out loud.
-- Match the user's English level: ${guidance}
-- Cover the range of moments: opening, asking questions, clarifying, responding, being polite, and closing.
-- Specific to THIS situation and role — phrases they could use almost word-for-word.
+- REALISTIC and natural — real things a person says, not textbook examples.
+- SHORT and easy to say out loud.
+- Calibrated to CEFR ${profile.cefrBand} (match the complexity guidance above).
+- Cover the range of moments: opening, asking, clarifying, responding, being polite, and closing.
+- Include and expand on the target phrases where natural; specific to THIS situation and role.
 - ${translationGuide}
 
 Return ONLY valid JSON in exactly this shape (10 items):
@@ -190,7 +217,12 @@ Return ONLY valid JSON in exactly this shape (10 items):
 // specific scenario, strictly following the fixed two-user-turn format.
 export function simulationPromptBuilderPrompt(
   profile: { firstName: string; jobTitle: string; company: string; englishLevel?: string | null },
-  scenario: { title: string; description: string }
+  scenario: {
+    title: string;
+    description: string;
+    canDo?: string | null;
+    functions?: string[];
+  }
 ) {
   const level = profile.englishLevel ?? "Intermediate";
   const levelSpeech: Record<string, string> = {
@@ -209,6 +241,9 @@ export function simulationPromptBuilderPrompt(
 
 The scenario to practise is:
 "${scenario.title}" — ${scenario.description}
+${scenario.canDo ? `\nLearning objective (can-do): ${scenario.canDo}` : ""}${scenario.functions?.length ? `\nFunctions the learner should practise: ${scenario.functions.join(", ")}` : ""}
+
+Design the conversation so it naturally gives ${profile.firstName} the chance to practise that objective and those functions.
 
 First, decide which character the AI should play. ${profile.firstName} is the LEARNER and will speak as themselves (the ${profile.jobTitle}). The AI must play the OTHER person in the conversation — the counterpart ${profile.firstName} is talking to (e.g. the client, customer, patient, candidate, colleague, or manager), NEVER ${profile.firstName} and NEVER a ${profile.jobTitle}. For example, if the scenario is a salesperson handling a client's price objection, the AI plays the CLIENT raising the objection. Then design a natural, friendly conversation for that counterpart.
 
@@ -254,17 +289,30 @@ Additional rules:
 IMPORTANT: Include the level-adaptation rule above ("${speechGuidance}") verbatim as the first item in the "Additional rules" section of the prompt you output.`;
 }
 
-export function simulationFeedbackPrompt(transcript: string, scenario: { title: string }) {
-  return `You are an expert teacher of English as a foreign language. Analyse what the LEARNER said in this conversation transcript from a professional English speaking simulation. Only assess the learner's lines, not the AI partner's.
-Scenario: "${scenario.title}"
+export function simulationFeedbackPrompt(
+  transcript: string,
+  scenario: {
+    title: string;
+    canDo?: string | null;
+    functions?: string[];
+    cefrBand?: string | null;
+  }
+) {
+  const objective = scenario.canDo ? `\nLearning objective (can-do): ${scenario.canDo}` : "";
+  const fns = scenario.functions?.length ? `\nFunctions to practise: ${scenario.functions.join(", ")}` : "";
+  const band = scenario.cefrBand ? ` The learner's CEFR level is ${scenario.cefrBand}; judge performance relative to what is expected at that level.` : "";
+
+  return `You are an expert teacher of English as a foreign language. Analyse what the LEARNER said in this conversation transcript from a professional English speaking simulation. Only assess the learner's lines, not the AI partner's.${band}
+Scenario: "${scenario.title}"${objective}${fns}
 
 Transcript:
 ${transcript}
 
-Score fluency, vocabulary, and grammar from 0-100.
+Score fluency, vocabulary, and grammar from 0-100 (relative to the learner's level).
 
 For "improvements": act as a supportive expert teacher.
-- Point out the specific vocabulary and grammar MISTAKES the learner actually made. For each, quote the words they used, then give a simple, clear correction or better way to say it.
+- First, briefly note whether the learner achieved the learning objective (the can-do) and used the target functions.
+- Then point out the specific vocabulary and grammar MISTAKES the learner actually made. For each, quote the words they used, then give a simple, clear correction or a better way to say it.
 - Keep each point short and easy to understand (the learner is not a native speaker). Use plain language.
 - If the learner made NO real mistakes, do NOT invent any. Instead return a single item that congratulates them warmly and adds one brief encouraging comment.
 
