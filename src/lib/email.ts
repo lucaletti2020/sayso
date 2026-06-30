@@ -6,7 +6,7 @@ const resend = apiKey ? new Resend(apiKey) : null;
 // Test-mode sender (Resend's shared domain). Swap for your own verified
 // domain (e.g. "TalktheTalk <hello@yourdomain.com>") once it's set up.
 const FROM = process.env.EMAIL_FROM ?? "TalktheTalk <onboarding@resend.dev>";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://sayso-eight.vercel.app";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://talkthetalk.app";
 
 // Wraps body content in a simple, clean branded layout.
 function layout(heading: string, bodyHtml: string, cta?: { label: string; url: string }) {
