@@ -54,6 +54,7 @@ model User {
   jobTitle         String?
   company          String?
   companySize      String?
+  industry         String?
   englishLevel     String?
   cefrLevel        String?
   nativeLanguage   String?

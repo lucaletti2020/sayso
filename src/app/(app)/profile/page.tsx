@@ -24,6 +24,7 @@ export default async function ProfilePage() {
       jobTitle: true,
       company: true,
       companySize: true,
+      industry: true,
       englishLevel: true,
       nativeLanguage: true,
       responsibilities: true,
@@ -59,6 +60,7 @@ export default async function ProfilePage() {
         <Field label="Native language" value={user.nativeLanguage} />
         <Field label="Job title" value={user.jobTitle} />
         <Field label="Company" value={user.company} />
+        <Field label="Industry" value={user.industry} />
         <Field label="Company size" value={user.companySize} />
         <div className="border-b py-4">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">English level</p>

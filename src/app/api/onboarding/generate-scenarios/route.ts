@@ -84,6 +84,7 @@ export async function POST(req: NextRequest) {
       jobTitle: profile.jobTitle,
       company: profile.company,
       companySize: profile.companySize ?? null,
+      industry: profile.industry ?? null,
       englishLevel,
       cefrLevel: cefrBand,
       nativeLanguage: profile.nativeLanguage ?? null,

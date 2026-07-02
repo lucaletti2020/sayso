@@ -10,6 +10,7 @@ Fields:
 - jobTitle (string)
 - company (string)
 - companySize (string — e.g. "1-10", "11-50", "51-200", "201-500", "501-1000", "1001-5000", "5000+"; infer from any employee-count or company-description signals; null if unknown)
+- industry (string — the industry/sector of the company they work in, e.g. "Software", "Hospitality", "Healthcare", "Financial Services", "Manufacturing"; infer from the company and role; null if unknown)
 - responsibilities (array of up to 5 short strings describing what they do; infer from headline, about, and experience if no explicit list)
 
 If a field is not found, use null.
