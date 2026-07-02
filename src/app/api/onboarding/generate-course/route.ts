@@ -26,8 +26,11 @@ export async function POST(req: NextRequest) {
     (answers as { question: string; answer: string }[] | undefined)?.find((a) =>
       CURRICULUM_LEVELS.some((l) => a.answer?.toLowerCase().includes(l.toLowerCase()))
     )?.answer ?? "Intermediate";
+  // Exact (case-insensitive) match so "Upper intermediate" doesn't match
+  // "Intermediate" by substring.
   const curriculumLevel =
-    CURRICULUM_LEVELS.find((l) => englishLevel.toLowerCase().includes(l.toLowerCase())) ?? "Intermediate";
+    CURRICULUM_LEVELS.find((l) => l.toLowerCase() === englishLevel.trim().toLowerCase()) ??
+    "Intermediate";
   const cefrBand = cefrBandForLevel(englishLevel);
 
   const units = await getCurriculumFor(industry, jobTitle, curriculumLevel);
