@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { ScenarioGrid } from "@/components/scenario/ScenarioGrid";
+import { readObjectives } from "@/lib/objectives";
 
 export default async function HomePage() {
   const session = await auth();
@@ -26,6 +27,18 @@ export default async function HomePage() {
 
   const firstName = user.name?.split(" ")[0] ?? "there";
 
+  // Pass each scenario's grammar point (from its objectives) to the grid.
+  const groupsWithGrammar = groups.map((g) => ({
+    id: g.id,
+    title: g.title,
+    scenarios: g.scenarios.map((s) => ({
+      id: s.id,
+      title: s.title,
+      status: s.status,
+      grammar: readObjectives(s.objectives).grammarFocus ?? null,
+    })),
+  }));
+
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-8">
@@ -37,7 +50,7 @@ export default async function HomePage() {
         )}
       </div>
 
-      <ScenarioGrid groups={groups} />
+      <ScenarioGrid groups={groupsWithGrammar} />
     </div>
   );
 }

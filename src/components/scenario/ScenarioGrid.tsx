@@ -4,14 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronUp, Lock, CheckCircle2, Circle } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ChevronDown, ChevronUp, CheckCircle2, Circle, BookOpen } from "lucide-react";
 
 type Scenario = {
   id: string;
   title: string;
-  description: string;
   status: "UNLOCKED" | "IN_PROGRESS" | "COMPLETED";
+  grammar?: string | null;
 };
 
 type Group = {
@@ -45,6 +44,12 @@ function ScenarioCard({ scenario }: { scenario: Scenario }) {
           <span className="text-sm font-medium">{scenario.title}</span>
           {statusBadge(scenario.status)}
         </div>
+        {scenario.grammar && (
+          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <BookOpen className="h-3 w-3 shrink-0" />
+            <span className="truncate">{scenario.grammar}</span>
+          </div>
+        )}
       </div>
     </button>
   );
