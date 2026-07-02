@@ -40,12 +40,36 @@ export default async function ScenarioPage({ params }: { params: Promise<{ id: s
       <h1 className="font-display text-4xl leading-tight mb-3">{scenario.title}</h1>
       <p className="text-muted-foreground mb-4">{scenario.description}</p>
 
-      {objectives.canDo && (
-        <div className="mb-8 flex items-start gap-2 rounded-xl border bg-muted/30 p-4">
-          <Target className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">You'll practise</p>
-            <p className="text-sm">{objectives.canDo}</p>
+      {(objectives.canDo || objectives.grammarFocus || objectives.vocabulary || objectives.functions?.length) && (
+        <div className="mb-8 flex flex-col gap-3 rounded-xl border bg-muted/30 p-4">
+          {objectives.canDo && (
+            <div className="flex items-start gap-2">
+              <Target className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">You'll practise</p>
+                <p className="text-sm">{objectives.canDo}</p>
+              </div>
+            </div>
+          )}
+          <div className="grid gap-2 sm:grid-cols-3 pl-6 text-xs">
+            {objectives.grammarFocus && (
+              <div>
+                <p className="font-medium uppercase tracking-wide text-muted-foreground">Grammar</p>
+                <p className="mt-0.5">{objectives.grammarFocus}</p>
+              </div>
+            )}
+            {objectives.vocabulary && (
+              <div>
+                <p className="font-medium uppercase tracking-wide text-muted-foreground">Vocabulary</p>
+                <p className="mt-0.5">{objectives.vocabulary}</p>
+              </div>
+            )}
+            {objectives.functions?.length ? (
+              <div>
+                <p className="font-medium uppercase tracking-wide text-muted-foreground">Functions</p>
+                <p className="mt-0.5">{objectives.functions.join("; ")}</p>
+              </div>
+            ) : null}
           </div>
         </div>
       )}

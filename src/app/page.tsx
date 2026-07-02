@@ -98,7 +98,14 @@ export default function Home() {
         const pendingProfile = sessionStorage.getItem("pending_profile");
         const pendingAnswers = sessionStorage.getItem("pending_answers");
         const pendingModules = sessionStorage.getItem("pending_modules");
-        if (pendingProfile && pendingAnswers && pendingModules) {
+        const pendingCurriculum = sessionStorage.getItem("pending_curriculum");
+        if (pendingProfile && pendingAnswers && pendingCurriculum) {
+          runCurriculum(
+            JSON.parse(pendingProfile),
+            JSON.parse(pendingAnswers),
+            JSON.parse(pendingCurriculum)
+          );
+        } else if (pendingProfile && pendingAnswers && pendingModules) {
           runGeneration(
             JSON.parse(pendingProfile),
             JSON.parse(pendingAnswers),
@@ -172,10 +179,85 @@ export default function Home() {
       setError(null);
       addUser(value);
       setInput("");
-      setProfile((prev) => ({ ...(prev ?? {}), nativeLanguage: value }));
-      await loadModules(answers);
+      const mergedProfile = { ...(profile ?? {}), nativeLanguage: value };
+      setProfile(mergedProfile);
+      await proceedAfterQuestions(mergedProfile, answers);
       return;
     }
+  }
+
+  // After onboarding: try to match the user to the fixed curriculum; if matched,
+  // build the fixed 12-unit course; otherwise fall back to dynamic modules.
+  async function proceedAfterQuestions(
+    prof: Profile,
+    finalAnswers: { question: string; answer: string }[]
+  ) {
+    setStep("loading_modules");
+    let match: { matched?: boolean; industry?: string; jobTitle?: string } = { matched: false };
+    try {
+      const res = await fetch("/api/onboarding/match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile: prof }),
+      });
+      if (res.ok) match = await res.json();
+    } catch {
+      match = { matched: false };
+    }
+
+    if (match.matched) {
+      await startCurriculum(prof, finalAnswers, match);
+    } else {
+      await loadModules(finalAnswers);
+    }
+  }
+
+  // Curriculum path: gate on sign-in, then build the fixed course.
+  async function startCurriculum(
+    prof: Profile,
+    finalAnswers: { question: string; answer: string }[],
+    match: { industry?: string; jobTitle?: string }
+  ) {
+    setStep("generating");
+    if (!session?.user) {
+      addAgent("Almost done! Sign in to save your course.");
+      sessionStorage.setItem("pending_profile", JSON.stringify(prof));
+      sessionStorage.setItem("pending_answers", JSON.stringify(finalAnswers));
+      sessionStorage.setItem("pending_curriculum", JSON.stringify(match));
+      return;
+    }
+    await runCurriculum(prof, finalAnswers, match);
+  }
+
+  async function runCurriculum(
+    profileData: Profile | null,
+    finalAnswers: { question: string; answer: string }[],
+    match: { industry?: string; jobTitle?: string }
+  ) {
+    setStep("generating");
+    addAgent("Great! Building your course now — one moment ✨");
+    const res = await fetch("/api/onboarding/generate-course", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        profile: profileData,
+        answers: finalAnswers,
+        industry: match.industry,
+        jobTitle: match.jobTitle,
+      }),
+    });
+    if (!res.ok) {
+      addAgent("Sorry, something went wrong. Please try again.");
+      setStep("done");
+      return;
+    }
+    sessionStorage.removeItem("pending_profile");
+    sessionStorage.removeItem("pending_answers");
+    sessionStorage.removeItem("pending_curriculum");
+    sessionStorage.removeItem("pending_modules");
+    setStep("done");
+    addAgent("Your course is ready! Let's go 🎉");
+    setTimeout(() => router.push("/home"), 1800);
   }
 
   function onKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {

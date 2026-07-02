@@ -4,7 +4,9 @@ export type ScenarioObjectives = {
   canDo?: string | null;
   functions?: string[];
   grammarFocus?: string | null;
+  vocabulary?: string | null;
   targetPhrases?: string[];
+  unitNumber?: number | null; // set for curriculum-based courses
 };
 
 // Safely read the objectives JSON off a scenario row.
@@ -16,8 +18,10 @@ export function readObjectives(value: unknown): ScenarioObjectives {
     canDo: typeof o.canDo === "string" ? o.canDo : null,
     functions: Array.isArray(o.functions) ? (o.functions.filter((x) => typeof x === "string") as string[]) : [],
     grammarFocus: typeof o.grammarFocus === "string" ? o.grammarFocus : null,
+    vocabulary: typeof o.vocabulary === "string" ? o.vocabulary : null,
     targetPhrases: Array.isArray(o.targetPhrases)
       ? (o.targetPhrases.filter((x) => typeof x === "string") as string[])
       : [],
+    unitNumber: typeof o.unitNumber === "number" ? o.unitNumber : null,
   };
 }

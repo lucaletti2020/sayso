@@ -326,3 +326,60 @@ Return ONLY valid JSON with this shape:
   "summary": "2-3 sentence overall assessment"
 }`;
 }
+
+// Classifies a user's free-text industry + job title onto the curriculum's
+// fixed taxonomy. Returns matched=false if the industry isn't reasonably
+// covered (caller then falls back to dynamic generation).
+export function curriculumMatchPrompt(
+  user: { industry?: string | null; company?: string | null; jobTitle?: string | null; responsibilities?: string[] },
+  taxonomy: { industry: string; jobTitles: string[] }[]
+) {
+  return `Match this professional to the closest entry in a fixed course taxonomy.
+
+User:
+- Industry: ${user.industry ?? "unknown"}
+- Company: ${user.company ?? "unknown"}
+- Job title: ${user.jobTitle ?? "unknown"}
+- Responsibilities: ${user.responsibilities?.length ? user.responsibilities.join("; ") : "unknown"}
+
+Taxonomy (industry → available job titles):
+${taxonomy.map((t) => `- ${t.industry}: ${t.jobTitles.join(", ")}`).join("\n")}
+
+Rules:
+- Pick the single closest industry ONLY if the user's industry is genuinely covered by the taxonomy. If it is a clearly different sector not represented here, set "matched" to false.
+- If matched, also pick the single closest job title from THAT industry's list (exact string from the list).
+
+Return ONLY valid JSON: { "matched": true/false, "industry": "exact industry or null", "jobTitle": "exact job title or null" }`;
+}
+
+// Personalises a fixed curriculum (12 units) into scenarios for one learner.
+// Grammar/vocabulary/functions come from the curriculum unit (not the model);
+// the model only personalises the situation title/description and adds a
+// can-do + target phrases, grounded in the unit's base scenario and the user.
+export function curriculumCoursePrompt(
+  profile: { jobTitle: string; company: string; industry: string; answers: { question: string; answer: string }[] },
+  units: { unitNumber: number; grammar: string; vocabulary: string; functions: string; baseScenarioTitle: string }[]
+) {
+  return `You are personalising a fixed English course for ${profile.jobTitle} at ${profile.company} (industry: ${profile.industry}).
+
+What they told us about their English needs:
+${profile.answers.map((a, i) => `${i + 1}. ${a.question} → ${a.answer}`).join("\n")}
+
+Below are ${units.length} course units. Each has a grammar/vocabulary/functions focus and a base scenario. Keep each unit's focus EXACTLY as given — only personalise the situation so it feels real for THIS person (use their role, company, and answers), staying true to the unit's base scenario and language focus.
+
+${units
+  .map(
+    (u) =>
+      `Unit ${u.unitNumber}\n  Base scenario: ${u.baseScenarioTitle}\n  Grammar: ${u.grammar}\n  Vocabulary: ${u.vocabulary}\n  Functions: ${u.functions}`
+  )
+  .join("\n\n")}
+
+For each unit return:
+- "unitNumber": the unit number
+- "title": a short, clear situation title (4-7 words), personalised to their role/context
+- "description": one simple sentence on the situation and what they'll practise
+- "canDo": a CEFR can-do statement for this unit ("Can ...")
+- "targetPhrases": 4-6 useful phrases/chunks for this situation, matching the unit's grammar/vocabulary/functions
+
+Return ONLY valid JSON: { "units": [ { "unitNumber", "title", "description", "canDo", "targetPhrases" } ] } with one entry per unit, same order.`;
+}
