@@ -134,3 +134,30 @@ enum AttemptType {
   SIMULATION
   PRONUNCIATION
 }
+
+// ─── Curriculum library (seeded from the multi-role curriculum CSV) ───────────
+
+model CurriculumUnit {
+  level      String
+  unitNumber Int
+  grammar    String               @db.Text
+  vocabulary String               @db.Text
+  functions  String               @db.Text
+  scenarios  CurriculumScenario[]
+
+  // Unit numbers restart per level, so the identity is (level, unitNumber).
+  @@id([level, unitNumber])
+}
+
+model CurriculumScenario {
+  id            String         @id @default(cuid())
+  level         String
+  unitNumber    Int
+  industry      String
+  jobTitle      String
+  scenarioTitle String         @db.Text
+  unit          CurriculumUnit @relation(fields: [level, unitNumber], references: [level, unitNumber], onDelete: Cascade)
+
+  @@unique([level, unitNumber, industry, jobTitle])
+  @@index([industry, jobTitle])
+}
