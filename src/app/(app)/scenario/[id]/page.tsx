@@ -99,20 +99,24 @@ export default async function UnitPage({ params }: { params: Promise<{ id: strin
           </div>
         </Link>
 
-        {/* 2 — Grammar & Vocabulary (coming soon) */}
-        <div className="flex h-full flex-col rounded-2xl border-2 border-dashed border-border bg-muted/20 p-5 opacity-70">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
-              <BookOpen className="h-5 w-5" />
+        {/* 2 — Grammar & Vocabulary */}
+        <Link href={`/scenario/${id}/grammar`} className="group block">
+          <div className="flex h-full flex-col rounded-2xl border-2 border-border bg-card p-5 transition-all group-hover:-translate-y-0.5 group-hover:border-foreground group-hover:shadow-pop">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-accent-foreground">
+                <BookOpen className="h-5 w-5" />
+              </div>
+              <span className="font-display text-2xl text-muted-foreground/40">2</span>
             </div>
-            <span className="font-display text-2xl text-muted-foreground/40">2</span>
+            <h3 className="font-semibold mb-1">Grammar &amp; Vocabulary</h3>
+            <p className="flex-1 text-sm text-muted-foreground">
+              A quick quiz on this unit's grammar and key words.
+            </p>
+            <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium">
+              Start <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+            </span>
           </div>
-          <h3 className="font-semibold mb-1">Grammar &amp; Vocabulary</h3>
-          <p className="flex-1 text-sm text-muted-foreground">
-            Learn and practise this unit's grammar and key words.
-          </p>
-          <Badge variant="secondary" className="mt-4 w-fit text-xs">Coming soon</Badge>
-        </div>
+        </Link>
 
         {/* 3 — AI Conversation */}
         <Link href={`/scenario/${id}/simulation`} className="group block">

@@ -431,3 +431,104 @@ For each unit return:
 
 Return ONLY valid JSON: { "units": [ { "unitNumber", "title", "description", "canDo", "targetPhrases" } ] } with one entry per unit, same order.`;
 }
+
+// Generates the Grammar & Vocabulary quiz: 10 Duolingo-style questions
+// covering all of the unit's grammar and core vocabulary at the learner's level.
+export function grammarQuizPrompt(
+  scenario: {
+    title: string;
+    description: string;
+    grammarFocus?: string | null;
+    vocabulary?: string | null;
+    functions?: string[];
+  },
+  profile: {
+    jobTitle: string;
+    nativeLanguage?: string | null;
+    cefrBand: string;
+    cefrGuidance: string;
+  }
+) {
+  const band = profile.cefrBand;
+  const higher = band === "B2" || band === "C1";
+  const native = profile.nativeLanguage?.trim() || "the learner's native language";
+
+  const mixRule = higher
+    ? `Create EXACTLY 7 "gap" questions and EXACTLY 3 "match" questions (10 total).`
+    : `Create EXACTLY 5 "gap" questions and EXACTLY 5 "match" questions (10 total).`;
+
+  const matchRule = higher
+    ? `Match questions must be ENGLISH ONLY — absolutely no translation. Each match question pairs unit-relevant words with their SYNONYMS ("kind":"synonym") or OPPOSITES ("kind":"opposite"). Use vocabulary sophisticated enough to challenge a ${band} learner.`
+    : `Match questions are mostly TRANSLATION ("kind":"translation"): English words/phrases on the left, their ${native} translations on the right. Choose vocabulary that is CORE to this situation and complex enough to merit a question (never trivial words). You may also include one or two non-translation match questions (synonyms, opposites, or word→collocation; set "kind" accordingly).`;
+
+  const sentenceCap =
+    band === "A2"
+      ? "Gap sentences: maximum 8 words, very simple structures."
+      : band === "B1"
+        ? "Gap sentences: maximum 10 words, clear and simple."
+        : band === "B2"
+          ? "Gap sentences: maximum 12 words — test COMPLEX grammar in SHORT sentences."
+          : "Gap sentences: maximum 14 words — test NUANCED grammar (register, subtle meaning differences) in SHORT sentences.";
+
+  const explanationRule = higher
+    ? `Each gap question has a 1-sentence "explanation" in ENGLISH of why the correct answer is right.`
+    : `Each gap question has a 1-sentence "explanation" written in ${native}, in very simple words, of why the correct answer is right.`;
+
+  return `You are writing a Duolingo-style quiz for a ${profile.jobTitle} learning English. The quiz is set in this work situation:
+"${scenario.title}" — ${scenario.description}
+
+This unit's language focus:
+- Grammar: ${scenario.grammarFocus ?? "(none)"}
+- Vocabulary: ${scenario.vocabulary ?? "(none)"}
+- Functions: ${scenario.functions?.length ? scenario.functions.join("; ") : "(none)"}
+
+The learner's level:
+${profile.cefrGuidance}
+
+Rules:
+1. ${mixRule}
+2. Together, the 10 questions must cover EVERY grammar element of the unit and the CORE vocabulary — nothing left out.
+3. "gap" questions test grammar: a sentence from the situation with exactly one blank written as ___ , plus exactly 3 short answer options (1-3 words each) of which EXACTLY ONE is correct. The two wrong options must be plausible but unambiguously incorrect in that sentence. Set "correctIndex" (0-2).
+4. ${sentenceCap}
+5. ${matchRule}
+6. Every match question has exactly 4 pairs. Every item (option or match cell) must be at most 24 characters so it fits its button.
+7. ${explanationRule} Translation match questions need no explanation; synonym/opposite match questions get a very short note (e.g. "rise ↔ fall are opposites").
+8. Duolingo style: the question contains NO instructions and relies on NO outside context or images.
+9. Mix the question order (do not put all gaps first).
+
+Return ONLY valid JSON:
+{ "questions": [
+  { "type":"gap", "prompt":"sentence with ___", "options":["a","b","c"], "correctIndex":0, "explanation":"...", "grammarPoint":"short label" },
+  { "type":"match", "kind":"translation|synonym|opposite|other", "pairs":[{"left":"...","right":"..."} ×4], "explanation":"optional" }
+] }`;
+}
+
+// Review/fix pass for the quiz: verifies coverage, single-correct gaps, counts,
+// language rules, and length caps — and returns a corrected set when needed.
+export function grammarQuizReviewPrompt(
+  quizJson: string,
+  unit: { grammarFocus?: string | null; vocabulary?: string | null },
+  rules: { band: string; gapCount: number; matchCount: number; nativeLanguage?: string | null }
+) {
+  const higher = rules.band === "B2" || rules.band === "C1";
+  return `Review this English-learning quiz (JSON below) against the rules. Fix ONLY what is wrong; keep everything that is correct unchanged.
+
+Unit grammar: ${unit.grammarFocus ?? "(none)"}
+Unit vocabulary: ${unit.vocabulary ?? "(none)"}
+
+Rules to verify:
+1. Exactly ${rules.gapCount} "gap" and ${rules.matchCount} "match" questions.
+2. All grammar elements of the unit are tested by at least one question; core unit vocabulary appears across the questions.
+3. Every gap question: sentence contains exactly one ___; exactly 3 options; EXACTLY ONE option is grammatically correct in the blank — check each distractor and fix any that could also be correct; correctIndex points to the correct option.
+4. Every match question has exactly 4 pairs and each pair is correctly matched (left[i] ↔ right[i]).
+5. ${higher ? "NO translation anywhere — match questions must be English-only synonyms or opposites." : `Match translations must be accurate ${rules.nativeLanguage ?? ""} translations.`}
+6. All options and match items ≤ 24 characters; gap sentences ≤ 90 characters.
+7. Gap explanations present (1 short sentence${higher ? ", in English" : `, in ${rules.nativeLanguage ?? "the learner's language"}`}).
+
+Quiz:
+${quizJson}
+
+Return ONLY valid JSON:
+- If everything passes: { "ok": true }
+- Otherwise: { "ok": false, "questions": [ ...the corrected full set of 10 questions in the same schema... ] }`;
+}
