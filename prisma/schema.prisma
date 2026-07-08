@@ -103,12 +103,13 @@ enum ScenarioStatus {
 }
 
 model PracticeSentence {
-  id          String   @id @default(cuid())
-  scenarioId  String
-  text        String
-  translation String?
-  audioUrl    String?
-  orderIndex  Int
+  id           String   @id @default(cuid())
+  scenarioId   String
+  text         String
+  translation  String?
+  grammarPoint String?
+  audioUrl     String?
+  orderIndex   Int
   scenario   Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
 
   @@index([scenarioId])

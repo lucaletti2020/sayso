@@ -160,6 +160,9 @@ Return ONLY valid JSON in this exact shape, with one group per chosen module, in
 Each group must contain exactly 5 scenarios.`;
 }
 
+// Generates the pronunciation-session sentence set for a unit: 8–15 sentences
+// that fit the unit's situation, use its grammar + vocabulary, cover EVERY
+// grammar element, and match the learner's level.
 export function sentenceGenerationPrompt(
   scenario: {
     title: string;
@@ -167,6 +170,7 @@ export function sentenceGenerationPrompt(
     canDo?: string | null;
     functions?: string[];
     grammarFocus?: string | null;
+    vocabulary?: string | null;
     targetPhrases?: string[];
   },
   profile: {
@@ -182,36 +186,80 @@ export function sentenceGenerationPrompt(
       ? `For each sentence, also provide a natural translation into ${nativeLanguage} in a "translation" field.`
       : `Leave the "translation" field as an empty string.`;
 
-  const objectives = [
-    scenario.canDo ? `- Objective (can-do): ${scenario.canDo}` : "",
-    scenario.functions?.length ? `- Functions to practise: ${scenario.functions.join(", ")}` : "",
-    scenario.grammarFocus ? `- Grammar focus: ${scenario.grammarFocus}` : "",
-    scenario.targetPhrases?.length ? `- Target phrases to build on: ${scenario.targetPhrases.join("; ")}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const lengthGuide: Record<string, string> = {
+    A2: "Sentences must be SHORT and SIMPLE (about 5-9 words), with basic everyday vocabulary.",
+    B1: "Sentences should be clear and moderately short (about 8-12 words).",
+    B2: "Sentences can be fuller and more varied (about 10-16 words), with some professional nuance.",
+    C1: "Sentences can be longer and more complex (about 14-22 words), with sophisticated structure and precise vocabulary.",
+  };
 
-  return `A ${profile.jobTitle} is preparing for this work situation where they must speak English:
+  return `You are creating a PRONUNCIATION practice set for a ${profile.jobTitle} preparing for this work situation:
+"${scenario.title}" — ${scenario.description}
+${scenario.canDo ? `Objective (can-do): ${scenario.canDo}` : ""}
+
+This unit's language focus (from the course curriculum):
+- Grammar: ${scenario.grammarFocus ?? "(none specified)"}
+- Vocabulary: ${scenario.vocabulary ?? "(none specified)"}
+- Functions: ${scenario.functions?.length ? scenario.functions.join("; ") : "(none specified)"}
+
+The learner's level:
+${profile.cefrGuidance}
+${lengthGuide[profile.cefrBand] ?? lengthGuide["B1"]}
+
+Your task:
+1. PRIVATELY split the unit's grammar into its distinct elements (e.g. "Verb be (I am/you are); subject pronouns" has two elements: the verb be, and subject pronouns).
+2. Write between 8 and 15 sentences the learner will repeat aloud. Choose the count based on grammar complexity: at least one sentence per grammar element, two or more for the harder elements. Do not pad with filler.
+3. EVERY grammar element must be covered by at least one sentence — none left out.
+4. Every sentence must sound like something this person would genuinely say in THIS situation, and should use the unit's vocabulary where natural.
+5. Label each sentence with the grammar element it practises in a short "grammarPoint" field (3-6 words).
+6. ${translationGuide}
+
+Return ONLY valid JSON in exactly this shape:
+{ "sentences": [ { "text": "the English sentence", "translation": "translation or empty string", "grammarPoint": "short label" } ] }`;
+}
+
+// Review pass: checks that a generated sentence set covers every grammar
+// element of the unit. Returns the missing elements (empty when complete).
+export function sentenceCoverageReviewPrompt(grammar: string, sentences: string[]) {
+  return `A course unit teaches this grammar:
+"${grammar}"
+
+Here are the practice sentences generated for the unit:
+${sentences.map((s, i) => `${i + 1}. ${s}`).join("\n")}
+
+Split the unit's grammar into its distinct elements. Then check, element by element, whether at least one sentence genuinely PRACTISES that element (uses the structure itself — not merely mentions it).
+
+Return ONLY valid JSON:
+{ "missing": ["grammar element not covered", ...] }
+Return { "missing": [] } if every element is covered.`;
+}
+
+// Repair pass: generates extra sentences for grammar elements the review
+// found uncovered.
+export function sentenceRepairPrompt(
+  scenario: { title: string; description: string },
+  missing: string[],
+  profile: { jobTitle: string; nativeLanguage?: string | null; cefrBand: string; cefrGuidance: string }
+) {
+  const nativeLanguage = profile.nativeLanguage?.trim();
+  const translationGuide =
+    nativeLanguage && nativeLanguage.toLowerCase() !== "english"
+      ? `For each sentence, also provide a natural translation into ${nativeLanguage} in a "translation" field.`
+      : `Leave the "translation" field as an empty string.`;
+
+  return `A ${profile.jobTitle} is practising pronunciation for this work situation:
 "${scenario.title}" — ${scenario.description}
 
 The learner's level:
 ${profile.cefrGuidance}
 
-Learning objectives for this scenario:
-${objectives || "- (none provided)"}
+These grammar elements are NOT yet covered by the practice set:
+${missing.map((m, i) => `${i + 1}. ${m}`).join("\n")}
 
-List the 10 MOST useful English sentences they will actually need in this situation — the key phrases they would really say, which realise the functions and objectives above.
+Write ONE sentence per missing element (realistic for this situation, at the learner's level, genuinely using that grammar structure). Label each with its "grammarPoint" (3-6 words). ${translationGuide}
 
-Guidelines:
-- REALISTIC and natural — real things a person says, not textbook examples.
-- SHORT and easy to say out loud.
-- Calibrated to CEFR ${profile.cefrBand} (match the complexity guidance above).
-- Cover the range of moments: opening, asking, clarifying, responding, being polite, and closing.
-- Include and expand on the target phrases where natural; specific to THIS situation and role.
-- ${translationGuide}
-
-Return ONLY valid JSON in exactly this shape (10 items):
-{ "sentences": [ { "text": "the English sentence", "translation": "translation or empty string" } ] }`;
+Return ONLY valid JSON:
+{ "sentences": [ { "text": "...", "translation": "...", "grammarPoint": "..." } ] }`;
 }
 
 // Meta-prompt: asks the model to WRITE the voice agent's system prompt for a

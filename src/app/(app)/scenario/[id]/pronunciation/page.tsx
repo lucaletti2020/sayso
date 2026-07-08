@@ -1,13 +1,20 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, Play, Mic, Square, Loader2 } from "lucide-react";
+import { ArrowLeft, Play, Mic, Square, Loader2, RefreshCw, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
-type Sentence = { id: string; text: string; audioUrl: string | null };
+type Sentence = {
+  id: string;
+  text: string;
+  translation: string | null;
+  grammarPoint: string | null;
+  audioUrl: string | null;
+};
 type WordScore = { word: string; score: number };
 type Feedback = { overallScore: number; words: WordScore[]; tip: string };
 
@@ -18,7 +25,6 @@ function downsample(buffer: Float32Array, inRate: number, outRate: number) {
   const ratio = inRate / outRate;
   const newLen = Math.round(buffer.length / ratio);
   const result = new Float32Array(newLen);
-  let offset = 0;
   for (let i = 0; i < newLen; i++) {
     const next = Math.round((i + 1) * ratio);
     let sum = 0;
@@ -28,7 +34,6 @@ function downsample(buffer: Float32Array, inRate: number, outRate: number) {
       count++;
     }
     result[i] = count ? sum / count : 0;
-    offset = next;
   }
   return result;
 }
@@ -72,14 +77,14 @@ function emojiFor(score: number) {
   return "💪";
 }
 
-function PracticeInner() {
+export default function PronunciationPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [sentences, setSentences] = useState<Sentence[]>([]);
   const [loading, setLoading] = useState(true);
+  const [regenerating, setRegenerating] = useState(false);
   const [index, setIndex] = useState(0);
+  const [done, setDone] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [recording, setRecording] = useState(false);
   const [assessing, setAssessing] = useState(false);
@@ -91,32 +96,66 @@ function PracticeInner() {
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Float32Array[]>([]);
 
-  useEffect(() => {
-    const ids = (searchParams.get("sentences") ?? "").split(",").filter(Boolean);
-    fetch("/api/scenario/sentences", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ scenarioId: id }),
-    })
-      .then((r) => r.json())
-      .then(({ sentences: all }: { sentences: Sentence[] }) => {
-        const byId = new Map((all ?? []).map((s) => [s.id, s]));
-        const ordered = ids.map((sid) => byId.get(sid)).filter(Boolean) as Sentence[];
-        setSentences(ordered.length ? ordered : all ?? []);
-        setLoading(false);
+  async function loadSentences(regenerate = false) {
+    if (regenerate) setRegenerating(true);
+    else setLoading(true);
+    try {
+      const res = await fetch("/api/scenario/sentences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scenarioId: id, regenerate }),
       });
-  }, [id, searchParams]);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setSentences(data.sentences ?? []);
+      setIndex(0);
+      setDone(false);
+      setFeedback(null);
+    } catch {
+      toast.error("Couldn't load your sentences. Please try again.");
+    } finally {
+      setLoading(false);
+      setRegenerating(false);
+    }
+  }
+
+  useEffect(() => {
+    loadSentences();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   const current = sentences[index];
   const isLast = index === sentences.length - 1;
 
   async function playAudio() {
-    if (!current?.audioUrl) return;
+    if (!current) return;
     setPlaying(true);
-    const audio = new Audio(current.audioUrl);
-    audio.onended = () => setPlaying(false);
-    audio.onerror = () => setPlaying(false);
-    await audio.play().catch(() => setPlaying(false));
+    try {
+      let url = current.audioUrl;
+      if (!url) {
+        // Lazy fallback if the stored audio is missing.
+        const res = await fetch("/api/scenario/audio", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sentenceId: current.id }),
+        });
+        const data = await res.json();
+        url = data.audioUrl ?? null;
+        if (url) {
+          setSentences((prev) =>
+            prev.map((s) => (s.id === current.id ? { ...s, audioUrl: url } : s))
+          );
+        }
+      }
+      if (!url) throw new Error("no audio");
+      const audio = new Audio(url);
+      audio.onended = () => setPlaying(false);
+      audio.onerror = () => setPlaying(false);
+      await audio.play();
+    } catch {
+      setPlaying(false);
+      toast.error("Couldn't play the audio. Please try again.");
+    }
   }
 
   async function toggleRecording() {
@@ -150,13 +189,11 @@ function PracticeInner() {
     const ctx = audioCtxRef.current;
     const sampleRate = ctx?.sampleRate ?? 48000;
 
-    // Tear down the audio graph and mic.
     processorRef.current?.disconnect();
     sourceRef.current?.disconnect();
     streamRef.current?.getTracks().forEach((t) => t.stop());
     await ctx?.close().catch(() => {});
 
-    // Merge captured chunks → downsample to 16 kHz → encode WAV.
     const chunks = chunksRef.current;
     const total = chunks.reduce((n, c) => n + c.length, 0);
     if (total === 0) {
@@ -194,7 +231,7 @@ function PracticeInner() {
   function handleContinue() {
     setFeedback(null);
     if (isLast) {
-      router.push(`/scenario/${id}/simulation`);
+      setDone(true);
     } else {
       setIndex((i) => i + 1);
     }
@@ -202,8 +239,35 @@ function PracticeInner() {
 
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" /> Loading your sentences…
+      <div className="max-w-2xl mx-auto py-20 text-center">
+        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-accent text-accent-foreground">
+          <Mic className="h-7 w-7" />
+        </div>
+        <h1 className="font-display text-3xl leading-tight mb-2">Preparing your pronunciation session</h1>
+        <p className="text-sm text-muted-foreground mb-6">
+          The first time takes about 20 seconds — we're writing sentences that cover this unit's grammar and creating their audio.
+        </p>
+        <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (done) {
+    return (
+      <div className="max-w-2xl mx-auto py-20 text-center">
+        <CheckCircle2 className="mx-auto mb-5 h-14 w-14 text-green-500" />
+        <h1 className="font-display text-4xl leading-tight mb-2">Session complete!</h1>
+        <p className="text-sm text-muted-foreground mb-8">
+          You practised all {sentences.length} sentences. Come back anytime to keep improving.
+        </p>
+        <div className="mx-auto flex max-w-sm flex-col gap-2">
+          <Button size="lg" onClick={() => { setIndex(0); setDone(false); }}>
+            Practise again
+          </Button>
+          <Link href={`/scenario/${id}`} className="w-full">
+            <Button variant="outline" size="lg" className="w-full">Back to unit</Button>
+          </Link>
+        </div>
       </div>
     );
   }
@@ -211,66 +275,105 @@ function PracticeInner() {
   if (!current) {
     return (
       <div className="max-w-2xl mx-auto text-sm text-muted-foreground">
-        No sentences selected.{" "}
-        <Link href={`/scenario/${id}/prepare`} className="underline">Go back to prepare</Link>.
+        No sentences yet.{" "}
+        <button onClick={() => loadSentences(true)} className="underline">Generate them now</button>.
       </div>
     );
   }
 
   return (
     <div className="max-w-2xl mx-auto">
-      <Link
-        href={`/scenario/${id}/prepare`}
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        Back to sentences
-      </Link>
-
-      <h1 className="font-display text-4xl leading-tight mb-1">Your sentences</h1>
-      <p className="text-sm text-muted-foreground mb-6">
-        Listen to each sentence and practise your pronunciation.
-      </p>
-
-      <p className="text-sm font-semibold mb-2">
-        Sentence {index + 1} of {sentences.length}
-      </p>
-      <p className="text-xl font-medium mb-6">{current.text}</p>
-
-      <div className="rounded-2xl border bg-card">
-        <div className="flex flex-col items-center gap-3 p-8">
-          <span className="text-sm text-muted-foreground">Listen to the sentence</span>
-          <button
-            onClick={playAudio}
-            disabled={!current.audioUrl}
-            className="flex h-16 w-16 items-center justify-center rounded-full border bg-background transition-colors hover:bg-muted disabled:opacity-40"
-          >
-            {playing ? <Loader2 className="h-6 w-6 animate-spin" /> : <Play className="h-6 w-6" />}
-          </button>
-        </div>
-
-        <div className="border-t" />
-
-        <div className="flex flex-col items-center gap-3 p-8">
-          <span className="text-sm text-muted-foreground">Practice your pronunciation</span>
-          <button
-            onClick={toggleRecording}
-            disabled={assessing}
-            className={`flex h-16 w-16 items-center justify-center rounded-full border transition-colors disabled:opacity-60 ${
-              recording ? "bg-destructive text-white border-destructive" : "bg-background hover:bg-muted"
-            }`}
-          >
-            {assessing ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
-            ) : recording ? (
-              <Square className="h-5 w-5" />
-            ) : (
-              <Mic className="h-6 w-6" />
-            )}
-          </button>
-          {recording && <span className="text-xs text-muted-foreground">Listening… tap to stop</span>}
-        </div>
+      <div className="mb-6 flex items-center justify-between">
+        <Link
+          href={`/scenario/${id}`}
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to unit
+        </Link>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => loadSentences(true)}
+          disabled={regenerating}
+          className="text-muted-foreground"
+        >
+          {regenerating ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5" />
+          )}
+          <span className="ml-1.5">Regenerate</span>
+        </Button>
       </div>
+
+      <h1 className="font-display text-4xl leading-tight mb-1">Pronunciation</h1>
+      <p className="text-sm text-muted-foreground mb-6">
+        Listen to each sentence, then say it aloud and get feedback on every word.
+      </p>
+
+      {regenerating ? (
+        <div className="flex items-center gap-2 py-16 justify-center text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Creating a new sentence set…
+        </div>
+      ) : (
+        <>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-sm font-semibold">
+              Sentence {index + 1} of {sentences.length}
+            </p>
+            {current.grammarPoint && (
+              <Badge variant="secondary" className="text-xs">{current.grammarPoint}</Badge>
+            )}
+          </div>
+          <div className="mb-1 h-1 w-full rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-accent transition-all duration-300"
+              style={{ width: `${((index + 1) / sentences.length) * 100}%` }}
+            />
+          </div>
+
+          <p className="mt-5 text-xl font-medium">{current.text}</p>
+          {current.translation && (
+            <p className="mt-1 text-sm font-light text-muted-foreground">{current.translation}</p>
+          )}
+
+          <div className="mt-6 rounded-2xl border bg-card">
+            <div className="flex flex-col items-center gap-3 p-8">
+              <span className="text-sm text-muted-foreground">Listen to the sentence</span>
+              <button
+                onClick={playAudio}
+                disabled={playing}
+                className="flex h-16 w-16 items-center justify-center rounded-full border bg-background transition-colors hover:bg-muted disabled:opacity-40"
+              >
+                {playing ? <Loader2 className="h-6 w-6 animate-spin" /> : <Play className="h-6 w-6" />}
+              </button>
+            </div>
+
+            <div className="border-t" />
+
+            <div className="flex flex-col items-center gap-3 p-8">
+              <span className="text-sm text-muted-foreground">Practise your pronunciation</span>
+              <button
+                onClick={toggleRecording}
+                disabled={assessing}
+                className={`flex h-16 w-16 items-center justify-center rounded-full border transition-colors disabled:opacity-60 ${
+                  recording ? "bg-destructive text-white border-destructive" : "bg-background hover:bg-muted"
+                }`}
+              >
+                {assessing ? (
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                ) : recording ? (
+                  <Square className="h-5 w-5" />
+                ) : (
+                  <Mic className="h-6 w-6" />
+                )}
+              </button>
+              {recording && <span className="text-xs text-muted-foreground">Listening… tap to stop</span>}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Feedback modal */}
       {feedback && (
@@ -311,26 +414,12 @@ function PracticeInner() {
                 Try again
               </Button>
               <Button className="flex-1" onClick={handleContinue}>
-                {isLast ? "Complete practice" : "Next sentence"}
+                {isLast ? "Finish session" : "Next sentence"}
               </Button>
             </div>
           </div>
         </div>
       )}
     </div>
-  );
-}
-
-export default function PracticePage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="max-w-2xl mx-auto flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading…
-        </div>
-      }
-    >
-      <PracticeInner />
-    </Suspense>
   );
 }

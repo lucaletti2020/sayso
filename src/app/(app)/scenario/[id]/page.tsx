@@ -2,12 +2,11 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Mic, BookOpen, Target } from "lucide-react";
+import { ArrowLeft, Mic, BookOpen, MessageCircle, Target, ArrowRight } from "lucide-react";
 import { readObjectives } from "@/lib/objectives";
 
-export default async function ScenarioPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function UnitPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -22,7 +21,7 @@ export default async function ScenarioPage({ params }: { params: Promise<{ id: s
   const objectives = readObjectives(scenario.objectives);
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-3xl mx-auto">
       <Link
         href="/home"
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -33,6 +32,9 @@ export default async function ScenarioPage({ params }: { params: Promise<{ id: s
 
       <div className="mb-2 flex items-center gap-2">
         <Badge variant="secondary" className="text-xs">{scenario.group.title}</Badge>
+        {objectives.unitNumber != null && (
+          <Badge variant="secondary" className="text-xs">Unit {objectives.unitNumber}</Badge>
+        )}
         {objectives.cefrLevel && (
           <Badge className="bg-accent text-accent-foreground text-xs">CEFR {objectives.cefrLevel}</Badge>
         )}
@@ -74,24 +76,60 @@ export default async function ScenarioPage({ params }: { params: Promise<{ id: s
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Link href={`/scenario/${id}/prepare`} className="block">
-          <div className="rounded-2xl border-2 border-muted bg-muted/30 p-6 h-full hover:border-muted-foreground/30 transition-colors cursor-pointer">
-            <BookOpen className="h-8 w-8 mb-4 text-muted-foreground" />
-            <h2 className="font-semibold mb-1">Prepare first</h2>
-            <p className="text-sm text-muted-foreground">
-              Learn useful sentences, listen to pronunciation, and practise before the conversation.
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        Your sessions
+      </h2>
+      <div className="grid gap-4 sm:grid-cols-3">
+        {/* 1 — Pronunciation */}
+        <Link href={`/scenario/${id}/pronunciation`} className="group block">
+          <div className="flex h-full flex-col rounded-2xl border-2 border-border bg-card p-5 transition-all group-hover:-translate-y-0.5 group-hover:border-foreground group-hover:shadow-pop">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-accent-foreground">
+                <Mic className="h-5 w-5" />
+              </div>
+              <span className="font-display text-2xl text-muted-foreground/40">1</span>
+            </div>
+            <h3 className="font-semibold mb-1">Pronunciation</h3>
+            <p className="flex-1 text-sm text-muted-foreground">
+              Repeat key sentences and get instant feedback on every word.
             </p>
+            <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium">
+              Start <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+            </span>
           </div>
         </Link>
 
-        <Link href={`/scenario/${id}/simulation`} className="block">
-          <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-6 h-full hover:border-primary/50 transition-colors cursor-pointer">
-            <Mic className="h-8 w-8 mb-4 text-primary" />
-            <h2 className="font-semibold mb-1">Start conversation</h2>
-            <p className="text-sm text-muted-foreground">
-              Jump right in — have a live voice conversation with your AI practice partner.
+        {/* 2 — Grammar & Vocabulary (coming soon) */}
+        <div className="flex h-full flex-col rounded-2xl border-2 border-dashed border-border bg-muted/20 p-5 opacity-70">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <BookOpen className="h-5 w-5" />
+            </div>
+            <span className="font-display text-2xl text-muted-foreground/40">2</span>
+          </div>
+          <h3 className="font-semibold mb-1">Grammar &amp; Vocabulary</h3>
+          <p className="flex-1 text-sm text-muted-foreground">
+            Learn and practise this unit's grammar and key words.
+          </p>
+          <Badge variant="secondary" className="mt-4 w-fit text-xs">Coming soon</Badge>
+        </div>
+
+        {/* 3 — AI Conversation */}
+        <Link href={`/scenario/${id}/simulation`} className="group block">
+          <div className="flex h-full flex-col rounded-2xl border-2 border-border bg-card p-5 transition-all group-hover:-translate-y-0.5 group-hover:border-foreground group-hover:shadow-pop">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <MessageCircle className="h-5 w-5" />
+              </div>
+              <span className="font-display text-2xl text-muted-foreground/40">3</span>
+            </div>
+            <h3 className="font-semibold mb-1">AI Conversation</h3>
+            <p className="flex-1 text-sm text-muted-foreground">
+              Role-play the situation live with your AI practice partner.
             </p>
+            <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium">
+              Start <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+            </span>
           </div>
         </Link>
       </div>
