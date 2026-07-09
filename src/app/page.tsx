@@ -84,10 +84,14 @@ export default function Home() {
 
   useEffect(() => {
     if (status !== "authenticated") return;
+    // "?new=1" lets an existing user run onboarding again to create an
+    // additional course (new profile and/or level).
+    const isNewCourse =
+      new URLSearchParams(window.location.search).get("new") === "1";
     fetch("/api/onboarding/status")
       .then((r) => r.json())
       .then((d) => {
-        if (d.onboardingDone) {
+        if (d.onboardingDone && !isNewCourse) {
           // Existing user → take them straight to their course.
           setRedirecting(true);
           router.replace("/home");
@@ -498,9 +502,9 @@ export default function Home() {
         {/* Hero */}
         <section className="mt-5 sm:mt-7">
           <h1 className="font-display text-3xl leading-[1.15] sm:text-5xl">
-            English{" "}
-            <em className="bg-accent px-1.5 italic text-accent-foreground">conversation practice</em>{" "}
-            for work, based on your LinkedIn profile.
+            Create a fully{" "}
+            <em className="bg-accent px-1.5 italic text-accent-foreground">personalised English course</em>,
+            based on your LinkedIn profile.
           </h1>
           <p className="mt-4 text-sm text-muted-foreground sm:text-base">
             TalktheTalk turns your LinkedIn profile into a personalized English conversation course focused on what you need to succeed at work.

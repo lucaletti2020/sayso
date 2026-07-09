@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
 const NAV = [
-  { href: "/home", label: "My Course", icon: Home },
+  { href: "/home", label: "My Courses", icon: Home },
   { href: "/dashboard", label: "Progress", icon: BarChart2 },
 ];
 

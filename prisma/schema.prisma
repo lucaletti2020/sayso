@@ -64,19 +64,43 @@ model User {
   createdAt        DateTime        @default(now())
   accounts         Account[]
   sessions         Session[]
+  courses          Course[]
   scenarioGroups   ScenarioGroup[]
   attempts         UserAttempt[]
+}
+
+model Course {
+  id               String          @id @default(cuid())
+  userId           String
+  title            String
+  firstName        String?
+  linkedinUrl      String?
+  jobTitle         String?
+  company          String?
+  companySize      String?
+  industry         String?
+  responsibilities String?         @db.Text
+  englishLevel     String?
+  cefrLevel        String?
+  createdAt        DateTime        @default(now())
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groups           ScenarioGroup[]
+
+  @@index([userId])
 }
 
 model ScenarioGroup {
   id         String     @id @default(cuid())
   userId     String
+  courseId   String?
   title      String
   orderIndex Int
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course     Course?    @relation(fields: [courseId], references: [id], onDelete: Cascade)
   scenarios  Scenario[]
 
   @@index([userId])
+  @@index([courseId])
 }
 
 model Scenario {

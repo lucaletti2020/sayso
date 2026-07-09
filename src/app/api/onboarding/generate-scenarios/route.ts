@@ -94,14 +94,30 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Delete any previous scenario groups for this user before creating new ones
-  await prisma.scenarioGroup.deleteMany({ where: { userId: userId } });
+  // Each onboarding run creates a NEW course (profile × level snapshot);
+  // existing courses are kept.
+  const course = await prisma.course.create({
+    data: {
+      userId,
+      title: `${profile.jobTitle ?? "My Course"} — ${englishLevel ?? "Intermediate"}`,
+      firstName: profile.firstName ?? null,
+      linkedinUrl: profile.linkedinUrl ?? null,
+      jobTitle: profile.jobTitle ?? null,
+      company: profile.company ?? null,
+      companySize: profile.companySize ?? null,
+      industry: profile.industry ?? null,
+      responsibilities: profile.responsibilities?.join("\n") ?? null,
+      englishLevel,
+      cefrLevel: cefrBand,
+    },
+  });
 
   for (let i = 0; i < groups.length; i++) {
     const group = groups[i];
     await prisma.scenarioGroup.create({
       data: {
         userId: userId,
+        courseId: course.id,
         title: group.title,
         orderIndex: i,
         scenarios: {

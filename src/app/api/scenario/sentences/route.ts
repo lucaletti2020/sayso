@@ -47,10 +47,14 @@ export async function POST(req: NextRequest) {
 
   const { scenarioId, regenerate } = await req.json();
 
-  const scenario = await prisma.scenario.findUnique({ where: { id: scenarioId } });
+  const scenario = await prisma.scenario.findUnique({
+    where: { id: scenarioId },
+    include: { group: { include: { course: true } } },
+  });
   if (!scenario || scenario.userId !== session.user.id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+  const course = scenario.group.course;
 
   if (regenerate) {
     // Clear the cached set so a fresh batch is generated below.
@@ -69,10 +73,15 @@ export async function POST(req: NextRequest) {
     select: { jobTitle: true, englishLevel: true, cefrLevel: true, nativeLanguage: true },
   });
 
-  const band = (user?.cefrLevel as CefrBand) ?? cefrBandForLevel(user?.englishLevel);
   const obj = readObjectives(scenario.objectives);
+  // Level/role come from this scenario's own course (falling back to the
+  // scenario objectives, then the user's latest profile).
+  const band =
+    (obj.cefrLevel as CefrBand | null) ??
+    (course?.cefrLevel as CefrBand | null) ??
+    cefrBandForLevel(course?.englishLevel ?? user?.englishLevel);
   const profile = {
-    jobTitle: user?.jobTitle ?? "professional",
+    jobTitle: course?.jobTitle ?? user?.jobTitle ?? "professional",
     nativeLanguage: user?.nativeLanguage,
     cefrBand: band,
     cefrGuidance: cefrGuidance(band),

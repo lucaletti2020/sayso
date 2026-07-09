@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
   }
   const byUnit = new Map(personalised.map((p) => [p.unitNumber, p]));
 
-  // Persist profile + curriculum details.
+  // Persist the latest profile on the user (defaults for future runs).
   await prisma.user.update({
     where: { id: userId },
     data: {
@@ -94,11 +94,28 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  await prisma.scenarioGroup.deleteMany({ where: { userId } });
+  // Each onboarding run creates a NEW course (profile × level snapshot);
+  // existing courses are kept.
+  const course = await prisma.course.create({
+    data: {
+      userId,
+      title: `${profile.jobTitle ?? "My Course"} — ${curriculumLevel}`,
+      firstName: profile.firstName ?? null,
+      linkedinUrl: profile.linkedinUrl ?? null,
+      jobTitle: profile.jobTitle ?? null,
+      company: profile.company ?? null,
+      companySize: profile.companySize ?? null,
+      industry: profile.industry ?? industry,
+      responsibilities: profile.responsibilities?.join("\n") ?? null,
+      englishLevel,
+      cefrLevel: cefrBand,
+    },
+  });
 
   await prisma.scenarioGroup.create({
     data: {
       userId,
+      courseId: course.id,
       title: `Your Course — ${curriculumLevel}`,
       orderIndex: 0,
       scenarios: {

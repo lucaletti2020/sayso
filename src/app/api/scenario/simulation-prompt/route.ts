@@ -17,20 +17,29 @@ export async function POST(req: NextRequest) {
 
   const scenario = await prisma.scenario.findFirst({
     where: { id: scenarioId, userId },
+    include: { group: { include: { course: true } } },
   });
   if (!scenario) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const course = scenario.group.course;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { name: true, jobTitle: true, company: true, englishLevel: true },
   });
 
+  // Level/role come from this scenario's own course, falling back to the
+  // user's latest profile.
+  const englishLevel = course?.englishLevel ?? user?.englishLevel ?? null;
+  const jobTitle = course?.jobTitle ?? user?.jobTitle ?? "a professional";
+  const company = course?.company ?? user?.company ?? "their company";
+  const firstName = course?.firstName ?? user?.name?.split(" ")[0] ?? "the user";
+
   // Already generated — reuse it.
   if (scenario.simulationPrompt) {
     return NextResponse.json({
       prompt: scenario.simulationPrompt,
       firstMessage: extractOpening(scenario.simulationPrompt),
-      englishLevel: user?.englishLevel ?? null,
+      englishLevel,
     });
   }
 
@@ -42,10 +51,10 @@ export async function POST(req: NextRequest) {
         role: "user",
         content: simulationPromptBuilderPrompt(
           {
-            firstName: user?.name?.split(" ")[0] ?? "the user",
-            jobTitle: user?.jobTitle ?? "a professional",
-            company: user?.company ?? "their company",
-            englishLevel: user?.englishLevel,
+            firstName,
+            jobTitle,
+            company,
+            englishLevel,
           },
           (() => {
             const o = readObjectives(scenario.objectives);
@@ -76,7 +85,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     prompt,
     firstMessage: extractOpening(prompt),
-    englishLevel: user?.englishLevel ?? null,
+    englishLevel,
   });
 }
 
