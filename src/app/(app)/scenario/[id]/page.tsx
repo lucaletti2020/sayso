@@ -24,59 +24,62 @@ export default async function UnitPage({ params }: { params: Promise<{ id: strin
     <div className="max-w-3xl mx-auto">
       <Link
         href="/home"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        className="mb-8 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
         Back to my course
       </Link>
 
-      <div className="mb-2 flex items-center gap-2">
-        <Badge variant="secondary" className="text-xs">{scenario.group.title}</Badge>
-        {objectives.unitNumber != null && (
-          <Badge variant="secondary" className="text-xs">Unit {objectives.unitNumber}</Badge>
-        )}
-        {objectives.cefrLevel && (
-          <Badge className="bg-accent text-accent-foreground text-xs">CEFR {objectives.cefrLevel}</Badge>
-        )}
+      <div className="mb-10">
+        <div className="mb-3 flex items-center gap-2">
+          <Badge variant="secondary" className="text-xs">{scenario.group.title}</Badge>
+          {objectives.unitNumber != null && (
+            <Badge variant="secondary" className="text-xs">Unit {objectives.unitNumber}</Badge>
+          )}
+          {objectives.cefrLevel && (
+            <Badge className="bg-accent text-accent-foreground text-xs">CEFR {objectives.cefrLevel}</Badge>
+          )}
+        </div>
+        <h1 className="font-display text-3xl leading-snug tracking-tight sm:text-4xl">
+          {scenario.title}
+        </h1>
       </div>
-      <h1 className="font-display text-4xl leading-tight mb-3">{scenario.title}</h1>
-      <p className="text-muted-foreground mb-4">{scenario.description}</p>
 
       {(objectives.canDo || objectives.grammarFocus || objectives.vocabulary || objectives.functions?.length) && (
-        <div className="mb-8 flex flex-col gap-3 rounded-xl border bg-muted/30 p-4">
+        <div className="mb-10 rounded-2xl border bg-muted/30 p-6">
           {objectives.canDo && (
-            <div className="flex items-start gap-2">
+            <div className="flex items-start gap-3">
               <Target className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">You'll practise</p>
-                <p className="text-sm">{objectives.canDo}</p>
+                <p className="mt-1 text-sm leading-relaxed">{objectives.canDo}</p>
               </div>
             </div>
           )}
-          <div className="grid gap-2 sm:grid-cols-3 pl-6 text-xs">
+          <div className="mt-5 grid gap-5 border-t pt-5 text-xs sm:grid-cols-3">
             {objectives.grammarFocus && (
               <div>
                 <p className="font-medium uppercase tracking-wide text-muted-foreground">Grammar</p>
-                <p className="mt-0.5">{objectives.grammarFocus}</p>
+                <p className="mt-1.5 leading-relaxed">{objectives.grammarFocus}</p>
               </div>
             )}
             {objectives.vocabulary && (
               <div>
                 <p className="font-medium uppercase tracking-wide text-muted-foreground">Vocabulary</p>
-                <p className="mt-0.5">{objectives.vocabulary}</p>
+                <p className="mt-1.5 leading-relaxed">{objectives.vocabulary}</p>
               </div>
             )}
             {objectives.functions?.length ? (
               <div>
                 <p className="font-medium uppercase tracking-wide text-muted-foreground">Functions</p>
-                <p className="mt-0.5">{objectives.functions.join("; ")}</p>
+                <p className="mt-1.5 leading-relaxed">{objectives.functions.join("; ")}</p>
               </div>
             ) : null}
           </div>
         </div>
       )}
 
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         Your sessions
       </h2>
       <div className="grid gap-4 sm:grid-cols-3">
