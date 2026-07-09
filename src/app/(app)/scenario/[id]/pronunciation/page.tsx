@@ -71,6 +71,24 @@ function wordColor(score: number) {
   return "bg-red-100 text-red-700 border-red-200";
 }
 
+// Feedback sounds (lazy singletons so they're only created in the browser).
+let correctSound: HTMLAudioElement | null = null;
+let wrongSound: HTMLAudioElement | null = null;
+
+function playCorrect() {
+  if (typeof window === "undefined") return;
+  correctSound ??= new Audio("/sounds/correct.mp3");
+  correctSound.currentTime = 0;
+  correctSound.play().catch(() => {});
+}
+
+function playWrong() {
+  if (typeof window === "undefined") return;
+  wrongSound ??= new Audio("/sounds/wrong.mp3");
+  wrongSound.currentTime = 0;
+  wrongSound.play().catch(() => {});
+}
+
 function emojiFor(score: number) {
   if (score >= 90) return "😊";
   if (score >= 70) return "🙂";
@@ -217,6 +235,9 @@ export default function PronunciationPage() {
       const res = await fetch("/api/scenario/pronunciation", { method: "POST", body: form });
       const data = await res.json();
       if (res.ok) {
+        // Same threshold as the modal's "Great job!" message.
+        if ((data.feedback?.overallScore ?? 0) >= 75) playCorrect();
+        else playWrong();
         setFeedback(data.feedback);
       } else {
         toast.error(data.error ?? "Assessment failed. Please try again.");

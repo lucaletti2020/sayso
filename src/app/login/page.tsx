@@ -11,7 +11,7 @@ export default function LoginPage() {
   }, []);
 
   return (
-    <main className="grain flex min-h-screen items-center justify-center bg-background px-5">
+    <main className="grain flex min-h-dvh items-center justify-center bg-background px-5 py-10">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-2xl text-accent-foreground">

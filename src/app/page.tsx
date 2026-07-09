@@ -98,6 +98,16 @@ export default function Home() {
           return;
         }
         setOnboardingChecked(true);
+        if (isNewCourse) {
+          // Creating an additional course: always start a FRESH chat — clear
+          // any leftover state from a previous onboarding run so the user
+          // enters a new LinkedIn profile from scratch.
+          sessionStorage.removeItem("pending_profile");
+          sessionStorage.removeItem("pending_answers");
+          sessionStorage.removeItem("pending_modules");
+          sessionStorage.removeItem("pending_curriculum");
+          return;
+        }
         // Resume an onboarding that was interrupted by the sign-in step.
         const pendingProfile = sessionStorage.getItem("pending_profile");
         const pendingAnswers = sessionStorage.getItem("pending_answers");
@@ -472,15 +482,15 @@ export default function Home() {
 
   if (showLoader) {
     return (
-      <main className="grain flex min-h-screen items-center justify-center bg-background text-foreground">
+      <main className="grain flex min-h-dvh items-center justify-center bg-background text-foreground">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </main>
     );
   }
 
   return (
-    <main className="grain min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex min-h-screen max-w-3xl flex-col px-5 py-4 sm:px-8 sm:py-6">
+    <main className="grain min-h-dvh bg-background text-foreground">
+      <div className="mx-auto flex min-h-dvh max-w-3xl flex-col px-5 pt-4 pb-12 sm:px-8 sm:pt-6 sm:pb-8">
         {/* Header */}
         <header className="flex items-center justify-between">
           <a href="/" className="flex items-center gap-2.5">
