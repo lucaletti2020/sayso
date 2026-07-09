@@ -58,6 +58,7 @@ model User {
   englishLevel     String?
   cefrLevel        String?
   nativeLanguage   String?
+  gender           String?
   responsibilities String?         @db.Text
   onboardingDone   Boolean         @default(false)
   reengageEmailSentAt DateTime?
@@ -74,6 +75,7 @@ model Course {
   userId           String
   title            String
   firstName        String?
+  gender           String?
   linkedinUrl      String?
   jobTitle         String?
   company          String?

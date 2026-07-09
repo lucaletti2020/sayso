@@ -2,18 +2,25 @@ import { createClient } from "@supabase/supabase-js";
 import { getSpeechConfig } from "@/lib/azure-speech";
 import { prisma } from "@/lib/prisma";
 
+// Voice matched to the learner's gender: female → female voice; male or
+// unknown → male voice.
+export function voiceForGender(gender?: string | null): string {
+  return gender?.toLowerCase() === "female" ? "en-US-JennyNeural" : "en-US-GuyNeural";
+}
+
 // Generates TTS audio for a practice sentence via Azure, stores the MP3 in
 // Supabase storage, saves the public URL on the sentence, and returns it.
 // Returns null on failure (callers treat audio as best-effort).
 export async function generateSentenceAudio(
   sentenceId: string,
-  text: string
+  text: string,
+  voice: string = "en-US-GuyNeural"
 ): Promise<string | null> {
   try {
     const { key, region } = getSpeechConfig();
 
     const ssml = `<speak version='1.0' xml:lang='en-US'>
-      <voice name='en-US-JennyNeural'>${escapeXml(text)}</voice>
+      <voice name='${voice}'>${escapeXml(text)}</voice>
     </speak>`;
 
     const ttsRes = await fetch(

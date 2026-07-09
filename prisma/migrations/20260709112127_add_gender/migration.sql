@@ -1,0 +1,2 @@
+ALTER TABLE "Course" ADD COLUMN "gender" TEXT;
+ALTER TABLE "User" ADD COLUMN "gender" TEXT;

@@ -11,6 +11,7 @@ Fields:
 - company (string)
 - companySize (string — e.g. "1-10", "11-50", "51-200", "201-500", "501-1000", "1001-5000", "5000+"; infer from any employee-count or company-description signals; null if unknown)
 - industry (string — the industry/sector of the company they work in, e.g. "Software", "Hospitality", "Healthcare", "Financial Services", "Manufacturing"; infer from the company and role; null if unknown)
+- gender ("male" or "female" — infer from the first name and any pronouns in the text; null if unclear)
 - responsibilities (array of up to 5 short strings describing what they do; infer from headline, about, and experience if no explicit list)
 
 If a field is not found, use null.
@@ -175,6 +176,8 @@ export function sentenceGenerationPrompt(
   },
   profile: {
     jobTitle: string;
+    firstName?: string | null;
+    company?: string | null;
     nativeLanguage?: string | null;
     cefrBand: string;
     cefrGuidance: string;
@@ -193,7 +196,7 @@ export function sentenceGenerationPrompt(
     C1: "Sentences can be longer and more complex (about 14-22 words), with sophisticated structure and precise vocabulary.",
   };
 
-  return `You are creating a PRONUNCIATION practice set for a ${profile.jobTitle} preparing for this work situation:
+  return `You are creating a PRONUNCIATION practice set for ${profile.firstName ? `${profile.firstName}, ` : ""}a ${profile.jobTitle}${profile.company ? ` at ${profile.company}` : ""}, preparing for this work situation:
 "${scenario.title}" — ${scenario.description}
 ${scenario.canDo ? `Objective (can-do): ${scenario.canDo}` : ""}
 
@@ -211,8 +214,9 @@ Your task:
 2. Write between 8 and 15 sentences the learner will repeat aloud. Choose the count based on grammar complexity: at least one sentence per grammar element, two or more for the harder elements. Do not pad with filler.
 3. EVERY grammar element must be covered by at least one sentence — none left out.
 4. Every sentence must sound like something this person would genuinely say in THIS situation, and should use the unit's vocabulary where natural.
-5. Label each sentence with the grammar element it practises in a short "grammarPoint" field (3-6 words).
-6. ${translationGuide}
+5. PERSONAL RELEVANCE: the sentences are spoken BY the learner. ${profile.firstName ? `If a sentence involves introducing themselves or saying their name, use their real name "${profile.firstName}" — NEVER invent a name for the learner.` : "Never invent a name for the learner — write self-introductions without a name."} ${profile.company ? `Refer to their real company "${profile.company}" where a company is mentioned.` : ""}
+6. Label each sentence with the grammar element it practises in a short "grammarPoint" field (3-6 words).
+7. ${translationGuide}
 
 Return ONLY valid JSON in exactly this shape:
 { "sentences": [ { "text": "the English sentence", "translation": "translation or empty string", "grammarPoint": "short label" } ] }`;
@@ -444,6 +448,8 @@ export function grammarQuizPrompt(
   },
   profile: {
     jobTitle: string;
+    firstName?: string | null;
+    company?: string | null;
     nativeLanguage?: string | null;
     cefrBand: string;
     cefrGuidance: string;
@@ -474,7 +480,7 @@ export function grammarQuizPrompt(
     ? `Each gap question has a 1-sentence "explanation" in ENGLISH of why the correct answer is right.`
     : `Each gap question has a 1-sentence "explanation" written in ${native}, in very simple words, of why the correct answer is right.`;
 
-  return `You are writing a Duolingo-style quiz for a ${profile.jobTitle} learning English. The quiz is set in this work situation:
+  return `You are writing a Duolingo-style quiz for ${profile.firstName ? `${profile.firstName}, ` : ""}a ${profile.jobTitle}${profile.company ? ` at ${profile.company}` : ""}, learning English. The quiz is set in this work situation:
 "${scenario.title}" — ${scenario.description}
 
 This unit's language focus:
@@ -494,7 +500,8 @@ Rules:
 6. Every match question has exactly 4 pairs. Every item (option or match cell) must be at most 24 characters so it fits its button.
 7. ${explanationRule} Translation match questions need no explanation; synonym/opposite match questions get a very short note (e.g. "rise ↔ fall are opposites").
 8. Duolingo style: the question contains NO instructions and relies on NO outside context or images.
-9. Mix the question order (do not put all gaps first).
+9. PERSONAL RELEVANCE: questions are about the LEARNER's situation. ${profile.firstName ? `If a sentence mentions the learner by name (e.g. an introduction), use their real name "${profile.firstName}" — NEVER invent a name for the learner.` : "Never invent a name for the learner."} ${profile.company ? `Use their real company "${profile.company}" where a company is mentioned.` : ""}
+10. Mix the question order (do not put all gaps first).
 
 Return ONLY valid JSON:
 { "questions": [

@@ -8,7 +8,7 @@ import {
 } from "@/lib/prompts";
 import { cefrBandForLevel, cefrGuidance, type CefrBand } from "@/lib/cefr";
 import { readObjectives } from "@/lib/objectives";
-import { generateSentenceAudio } from "@/lib/tts";
+import { generateSentenceAudio, voiceForGender } from "@/lib/tts";
 import { prisma } from "@/lib/prisma";
 
 type GeneratedSentence = { text: string; translation?: string; grammarPoint?: string };
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { jobTitle: true, englishLevel: true, cefrLevel: true, nativeLanguage: true },
+    select: { name: true, jobTitle: true, company: true, englishLevel: true, nativeLanguage: true, gender: true },
   });
 
   const obj = readObjectives(scenario.objectives);
@@ -82,6 +82,8 @@ export async function POST(req: NextRequest) {
     cefrBandForLevel(course?.englishLevel ?? user?.englishLevel);
   const profile = {
     jobTitle: course?.jobTitle ?? user?.jobTitle ?? "professional",
+    firstName: course?.firstName ?? user?.name?.split(" ")[0] ?? null,
+    company: course?.company ?? user?.company ?? null,
     nativeLanguage: user?.nativeLanguage,
     cefrBand: band,
     cefrGuidance: cefrGuidance(band),
@@ -180,7 +182,9 @@ export async function POST(req: NextRequest) {
   // 4. Generate all audios in parallel (best-effort) so the set is stored
   //    complete and ready for practice.
   const audioResults = await Promise.allSettled(
-    sentences.map((s) => generateSentenceAudio(s.id, s.text))
+    sentences.map((s) =>
+      generateSentenceAudio(s.id, s.text, voiceForGender(course?.gender ?? user?.gender))
+    )
   );
   const withAudio = sentences.map((s, i) => {
     const r = audioResults[i];

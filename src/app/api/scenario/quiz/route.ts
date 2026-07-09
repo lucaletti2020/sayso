@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { jobTitle: true, englishLevel: true, cefrLevel: true, nativeLanguage: true },
+    select: { name: true, jobTitle: true, company: true, englishLevel: true, nativeLanguage: true },
   });
 
   const obj = readObjectives(scenario.objectives);
@@ -45,6 +45,8 @@ export async function POST(req: NextRequest) {
   const mix = quizMixForBand(band);
   const profile = {
     jobTitle: course?.jobTitle ?? user?.jobTitle ?? "professional",
+    firstName: course?.firstName ?? user?.name?.split(" ")[0] ?? null,
+    company: course?.company ?? user?.company ?? null,
     nativeLanguage: user?.nativeLanguage,
     cefrBand: band,
     cefrGuidance: cefrGuidance(band),
