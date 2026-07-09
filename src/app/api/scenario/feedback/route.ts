@@ -21,6 +21,11 @@ export async function POST(req: NextRequest) {
   const scenario = await prisma.scenario.findFirst({ where: { id: scenarioId, userId } });
   if (!scenario) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true, name: true, nativeLanguage: true },
+  });
+
   const obj = readObjectives(scenario.objectives);
 
   const openai = getAzureOpenAI();
@@ -34,6 +39,7 @@ export async function POST(req: NextRequest) {
           canDo: obj.canDo,
           functions: obj.functions,
           cefrBand: obj.cefrLevel,
+          nativeLanguage: user?.nativeLanguage,
         }),
       },
     ],
@@ -76,10 +82,6 @@ export async function POST(req: NextRequest) {
   const timestamp = attempt.createdAt.getTime();
 
   // Email the user a link to their feedback (best-effort).
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { email: true, name: true },
-  });
   if (user?.email) {
     await sendFeedbackReadyEmail(
       user.email,

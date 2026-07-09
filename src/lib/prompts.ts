@@ -298,7 +298,7 @@ ${scenario.canDo ? `\nLearning objective (can-do): ${scenario.canDo}` : ""}${sce
 
 Design the conversation so it naturally gives ${profile.firstName} the chance to practise that objective and those functions.
 
-First, decide which character the AI should play. ${profile.firstName} is the LEARNER and will speak as themselves (the ${profile.jobTitle}). The AI must play the OTHER person in the conversation — the counterpart ${profile.firstName} is talking to (e.g. the client, customer, patient, candidate, colleague, or manager), NEVER ${profile.firstName} and NEVER a ${profile.jobTitle}. For example, if the scenario is a salesperson handling a client's price objection, the AI plays the CLIENT raising the objection. Then design a natural, friendly conversation for that counterpart.
+First, decide which character the AI should play. ${profile.firstName} is the LEARNER and will speak as themselves (the ${profile.jobTitle}). The AI must play the OTHER person in the conversation — the counterpart ${profile.firstName} is talking to (e.g. the client, customer, patient, candidate, colleague, or manager), NEVER ${profile.firstName} and NEVER a ${profile.jobTitle}. For example, if the scenario is a salesperson handling a client's price objection, the AI plays the CLIENT raising the objection. The AI's character is ALWAYS named Alex — if the opening naturally includes a name, it introduces itself as Alex. Then design a natural, friendly conversation for that counterpart.
 
 CRITICAL conversation rules (must be reflected in the prompt you write):
 - The user speaks EXACTLY twice, then the call ends.
@@ -307,11 +307,11 @@ CRITICAL conversation rules (must be reflected in the prompt you write):
   2. The user replies (their 1st turn).
   3. The agent briefly acknowledges, responds to what they said, and asks ONE more question.
   4. The user replies again (their 2nd turn).
-  5. The agent answers any question they asked, makes a short closing comment, and says goodbye. NO more questions.
+  5. The agent answers any question they asked, makes a short closing remark that fits THIS conversation (e.g. if they were meeting for the first time: "it was great meeting you"), says it has to go now and ends the call with a goodbye. NO more questions.
 
 Output ONLY the finished system prompt as plain text — no JSON, no preamble, no explanation, no code fences. It MUST follow EXACTLY this structure and wording style, with the bracketed parts replaced to fit the scenario:
 
-You are a [persona] [handling this situation]. Be warm, casual and natural. Only speak English.
+You are a [persona] named Alex, [handling this situation]. Be warm, casual and natural. Only speak English.
 
 Conversation flow:
 
@@ -328,8 +328,8 @@ Conversation flow:
 
 * Do NOT ask any more questions.
 * Answer their question if they asked one.
-* [give the natural closing action for this scenario].
-* Say goodbye.
+* [make a short closing remark that fits this conversation, e.g. "it was great meeting you"].
+* Say you have to go now, and say goodbye to end the call.
 
 Additional rules:
 
@@ -349,11 +349,17 @@ export function simulationFeedbackPrompt(
     canDo?: string | null;
     functions?: string[];
     cefrBand?: string | null;
+    nativeLanguage?: string | null;
   }
 ) {
   const objective = scenario.canDo ? `\nLearning objective (can-do): ${scenario.canDo}` : "";
   const fns = scenario.functions?.length ? `\nFunctions to practise: ${scenario.functions.join(", ")}` : "";
   const band = scenario.cefrBand ? ` The learner's CEFR level is ${scenario.cefrBand}; judge performance relative to what is expected at that level.` : "";
+  const native = scenario.nativeLanguage?.trim();
+  const languageRule =
+    native && native.toLowerCase() !== "english"
+      ? `Write ALL feedback text ("improvements" and "summary") in ${native}, the learner's native language. Keep the learner's quoted English words and the corrected English phrases in English.`
+      : `Write the feedback in English.`;
 
   return `You are an expert teacher of English as a foreign language. Analyse what the LEARNER said in this conversation transcript from a professional English speaking simulation. Only assess the learner's lines, not the AI partner's.${band}
 Scenario: "${scenario.title}"${objective}${fns}
@@ -365,9 +371,10 @@ Score fluency, vocabulary, and grammar from 0-100 (relative to the learner's lev
 
 For "improvements": act as a supportive expert teacher.
 - First, briefly note whether the learner achieved the learning objective (the can-do) and used the target functions.
-- Then point out the specific vocabulary and grammar MISTAKES the learner actually made. For each, quote the words they used, then give a simple, clear correction or a better way to say it.
-- Keep each point short and easy to understand (the learner is not a native speaker). Use plain language.
+- Then point out the specific vocabulary and grammar MISTAKES the learner actually made. For each, quote the English words they used, then give a simple, clear correction or a better way to say it (the correction itself stays in English).
+- Use DIRECT, SIMPLE sentences — every point must be concretely useful for improving the learner's proficiency. No filler, no vague praise.
 - If the learner made NO real mistakes, do NOT invent any. Instead return a single item that congratulates them warmly and adds one brief encouraging comment.
+- ${languageRule}
 
 Return ONLY valid JSON with this shape:
 {
