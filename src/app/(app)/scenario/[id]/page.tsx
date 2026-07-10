@@ -51,7 +51,7 @@ export default async function UnitPage({ params }: { params: Promise<{ id: strin
             <div className="flex items-start gap-3">
               <Target className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
               <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">You'll practise</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">You&apos;ll practise</p>
                 <p className="mt-1 text-sm leading-relaxed">{objectives.canDo}</p>
               </div>
             </div>
@@ -113,7 +113,7 @@ export default async function UnitPage({ params }: { params: Promise<{ id: strin
             </div>
             <h3 className="font-semibold mb-1">Grammar &amp; Vocabulary</h3>
             <p className="flex-1 text-sm text-muted-foreground">
-              A quick quiz on this unit's grammar and key words.
+              A quick quiz on this unit&apos;s grammar and key words.
             </p>
             <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium">
               Start <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />

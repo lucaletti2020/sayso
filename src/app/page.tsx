@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { signIn, useSession, getProviders } from "next-auth/react";
 import { Loader2 } from "lucide-react";
 
@@ -546,12 +547,12 @@ export default function Home() {
       <div className="mx-auto flex min-h-dvh max-w-3xl flex-col px-5 pt-4 pb-12 sm:px-8 sm:pt-6 sm:pb-8">
         {/* Header */}
         <header className="flex items-center justify-between">
-          <a href="/" className="flex items-center gap-2.5">
+          <Link href="/" className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground text-lg">
               🔊
             </div>
             <span className="font-display text-2xl leading-none">TalktheTalk</span>
-          </a>
+          </Link>
           {status === "unauthenticated" && (
             <a
               href="/login"

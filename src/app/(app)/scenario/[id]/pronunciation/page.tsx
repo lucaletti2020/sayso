@@ -244,7 +244,7 @@ export default function PronunciationPage() {
         </div>
         <h1 className="font-display text-3xl leading-tight mb-2">Preparing your pronunciation session</h1>
         <p className="text-sm text-muted-foreground mb-6">
-          The first time takes about 20 seconds — we're writing sentences that cover this unit's grammar and creating their audio.
+          The first time takes about 20 seconds &mdash; we&apos;re writing sentences that cover this unit&apos;s grammar and creating their audio.
         </p>
         <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
       </div>

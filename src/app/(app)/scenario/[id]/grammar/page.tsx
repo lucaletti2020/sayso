@@ -333,7 +333,7 @@ export default function GrammarQuizPage() {
         </div>
         <h1 className="font-display text-3xl leading-tight mb-2">Preparing your quiz</h1>
         <p className="text-sm text-muted-foreground mb-6">
-          The first time takes about 15 seconds — we're writing questions that cover this unit's grammar and vocabulary.
+          The first time takes about 15 seconds &mdash; we&apos;re writing questions that cover this unit&apos;s grammar and vocabulary.
         </p>
         <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
       </div>
