@@ -2,6 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAzureOpenAI, DEPLOYMENT } from "@/lib/azure-openai";
 import { profileExtractionPrompt } from "@/lib/prompts";
 
+// Returns a normalised https LinkedIn URL, or null if the input is not a
+// genuine linkedin.com address.
+function parseLinkedInUrl(input: unknown): string | null {
+  if (typeof input !== "string" || input.length > 500) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(input.startsWith("http") ? input : `https://${input}`);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
+  const host = parsed.hostname.toLowerCase();
+  if (host !== "linkedin.com" && !host.endsWith(".linkedin.com")) return null;
+  parsed.protocol = "https:";
+  return parsed.toString();
+}
+
 // Fetches a LinkedIn profile's text via the Exa content API (which can read
 // pages that block naive scraping), then extracts structured fields via GPT.
 // Falls back to a plain fetch if Exa isn't configured.
@@ -54,13 +71,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ profile });
   }
 
-  if (!url || !url.includes("linkedin.com")) {
+  // Strict validation: only https URLs whose host IS linkedin.com (or a
+  // subdomain) are fetched — a substring check would allow SSRF via
+  // attacker-controlled hosts (e.g. https://evil.com/?x=linkedin.com).
+  const safeUrl = parseLinkedInUrl(url);
+  if (!safeUrl) {
     return NextResponse.json({ error: "Invalid LinkedIn URL" }, { status: 400 });
   }
 
   let profileText = "";
   try {
-    profileText = await fetchProfileText(url);
+    profileText = await fetchProfileText(safeUrl);
   } catch {
     return NextResponse.json(
       { error: "Could not fetch LinkedIn profile. Please paste your profile text instead." },
