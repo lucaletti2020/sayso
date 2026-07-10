@@ -64,7 +64,8 @@ export const CEFR: Record<CefrBand, BandInfo> = {
 
 // A compact text block to inject into generation/feedback prompts.
 export function cefrGuidance(band: CefrBand): string {
-  const b = CEFR[band];
+  // Bands flow through stored JSON, so guard against invalid values.
+  const b = CEFR[band] ?? CEFR.B1;
   return `CEFR level: ${band}.
 - Spoken interaction (can-do): ${b.spokenInteraction}
 - Spoken production (can-do): ${b.spokenProduction}

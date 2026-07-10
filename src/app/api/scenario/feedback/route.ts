@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     ],
     response_format: { type: "json_object" },
     temperature: 0.5,
-    max_completion_tokens: 800,
+    max_completion_tokens: 1200,
   });
 
   let feedback;
@@ -55,9 +55,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to parse feedback" }, { status: 500 });
   }
 
-  // Overall score = average of fluency, vocabulary, and grammar.
+  // Coerce model-provided scores to finite numbers (the model may return
+  // strings or omit fields); overall = average of the three.
+  const toScore = (v: unknown) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0;
+  };
+  feedback.fluency = toScore(feedback.fluency);
+  feedback.vocabulary = toScore(feedback.vocabulary);
+  feedback.grammar = toScore(feedback.grammar);
   const overallScore = Math.round(
-    ((feedback.fluency ?? 0) + (feedback.vocabulary ?? 0) + (feedback.grammar ?? 0)) / 3
+    (feedback.fluency + feedback.vocabulary + feedback.grammar) / 3
   );
   feedback.overallScore = overallScore;
 
