@@ -5,9 +5,10 @@ import { sendReengagementEmail } from "@/lib/email";
 // Daily job (Vercel Cron): email users who signed up but haven't done a
 // conversation yet — sent the day after sign-up, once per user.
 export async function GET(req: NextRequest) {
-  // Vercel Cron sends "Authorization: Bearer <CRON_SECRET>" when CRON_SECRET is set.
+  // Vercel Cron sends "Authorization: Bearer <CRON_SECRET>". Fail closed: if
+  // the secret isn't configured, nobody can trigger this endpoint.
   const secret = process.env.CRON_SECRET;
-  if (secret && req.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
