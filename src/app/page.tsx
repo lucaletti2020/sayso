@@ -63,6 +63,9 @@ export default function Home() {
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Guards the sign-in resume path so React StrictMode's double effect run
+  // (dev) can't trigger course generation twice.
+  const resumeFiredRef = useRef(false);
 
   const busy =
     step === "processing_linkedin" ||
@@ -113,19 +116,27 @@ export default function Home() {
         const pendingAnswers = sessionStorage.getItem("pending_answers");
         const pendingModules = sessionStorage.getItem("pending_modules");
         const pendingCurriculum = sessionStorage.getItem("pending_curriculum");
+        if (resumeFiredRef.current) return;
         if (pendingProfile && pendingAnswers && pendingCurriculum) {
+          resumeFiredRef.current = true;
           runCurriculum(
             JSON.parse(pendingProfile),
             JSON.parse(pendingAnswers),
             JSON.parse(pendingCurriculum)
           );
         } else if (pendingProfile && pendingAnswers && pendingModules) {
+          resumeFiredRef.current = true;
           runGeneration(
             JSON.parse(pendingProfile),
             JSON.parse(pendingAnswers),
             JSON.parse(pendingModules)
           );
         }
+      })
+      .catch(() => {
+        // Network failure checking status: show the chat rather than an
+        // infinite loader.
+        setOnboardingChecked(true);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, router]);
@@ -171,11 +182,18 @@ export default function Home() {
       addUser(value);
       setInput("");
       setStep("processing_linkedin");
-      const res = await fetch("/api/onboarding/linkedin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: value }),
-      });
+      let res: Response;
+      try {
+        res = await fetch("/api/onboarding/linkedin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: value }),
+        });
+      } catch {
+        addAgent("Sorry, I couldn't reach the server. Please try again.");
+        setStep("confirm_role");
+        return;
+      }
       if (!res.ok) {
         addAgent("Sorry, something went wrong. Please try again.");
         setStep("confirm_role");
@@ -250,16 +268,23 @@ export default function Home() {
   ) {
     setStep("generating");
     addAgent("Great! Building your course now — one moment ✨");
-    const res = await fetch("/api/onboarding/generate-course", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        profile: profileData,
-        answers: finalAnswers,
-        industry: match.industry,
-        jobTitle: match.jobTitle,
-      }),
-    });
+    let res: Response;
+    try {
+      res = await fetch("/api/onboarding/generate-course", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profile: profileData,
+          answers: finalAnswers,
+          industry: match.industry,
+          jobTitle: match.jobTitle,
+        }),
+      });
+    } catch {
+      addAgent("Sorry, something went wrong. Please try again.");
+      setStep("done");
+      return;
+    }
     if (!res.ok) {
       addAgent("Sorry, something went wrong. Please try again.");
       setStep("done");
@@ -284,11 +309,18 @@ export default function Home() {
   async function processLinkedIn(url: string) {
     setStep("processing_linkedin");
 
-    const res = await fetch("/api/onboarding/linkedin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
-    });
+    let res: Response;
+    try {
+      res = await fetch("/api/onboarding/linkedin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+    } catch {
+      addAgent("Sorry, I couldn't reach the server. Please check your connection and try again.");
+      setStep("awaiting_linkedin");
+      return;
+    }
 
     if (!res.ok) {
       addAgent("Sorry, I couldn't read that link. Please check it and try again.");
@@ -330,12 +362,19 @@ export default function Home() {
     prior: { question: string; answer: string }[]
   ) {
     setThinking(true);
-    const qRes = await fetch("/api/onboarding/questions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profile: profileForQuestions, priorAnswers: prior }),
-    });
-    setThinking(false);
+    let qRes: Response;
+    try {
+      qRes = await fetch("/api/onboarding/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile: profileForQuestions, priorAnswers: prior }),
+      });
+    } catch {
+      addAgent("Sorry, something went wrong. Please try again.");
+      return;
+    } finally {
+      setThinking(false);
+    }
 
     if (!qRes.ok) {
       addAgent("Sorry, something went wrong. Please try again.");
@@ -391,11 +430,18 @@ export default function Home() {
   async function loadModules(finalAnswers: { question: string; answer: string }[]) {
     setStep("loading_modules");
 
-    const res = await fetch("/api/onboarding/modules", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profile, answers: finalAnswers }),
-    });
+    let res: Response;
+    try {
+      res = await fetch("/api/onboarding/modules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile, answers: finalAnswers }),
+      });
+    } catch {
+      addAgent("Sorry, something went wrong. Please try again.");
+      setStep("questions");
+      return;
+    }
 
     if (!res.ok) {
       addAgent("Sorry, something went wrong. Please try again.");
@@ -451,11 +497,18 @@ export default function Home() {
     setStep("generating");
     addAgent("Great! Building your course now — one moment ✨");
 
-    const res = await fetch("/api/onboarding/generate-scenarios", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profile: profileData, answers: finalAnswers, modules: chosenModules }),
-    });
+    let res: Response;
+    try {
+      res = await fetch("/api/onboarding/generate-scenarios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile: profileData, answers: finalAnswers, modules: chosenModules }),
+      });
+    } catch {
+      addAgent("Sorry, something went wrong. Please try again.");
+      setStep("done");
+      return;
+    }
 
     if (!res.ok) {
       addAgent("Sorry, something went wrong. Please try again.");
