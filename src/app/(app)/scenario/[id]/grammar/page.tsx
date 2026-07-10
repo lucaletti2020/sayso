@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { ArrowLeft, BookOpen, Loader2, RefreshCw, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { playCorrect, playWrong } from "@/lib/feedback-fx";
 
 type GapQuestion = {
   type: "gap";
@@ -24,24 +25,6 @@ type MatchQuestion = {
   explanation?: string;
 };
 type QuizQuestion = GapQuestion | MatchQuestion;
-
-// Feedback sounds (lazy singletons so they're only created in the browser).
-let correctSound: HTMLAudioElement | null = null;
-let wrongSound: HTMLAudioElement | null = null;
-
-function playCorrect() {
-  if (typeof window === "undefined") return;
-  correctSound ??= new Audio("/sounds/correct.mp3");
-  correctSound.currentTime = 0;
-  correctSound.play().catch(() => {});
-}
-
-function playWrong() {
-  if (typeof window === "undefined") return;
-  wrongSound ??= new Audio("/sounds/wrong.mp3");
-  wrongSound.currentTime = 0;
-  wrongSound.play().catch(() => {});
-}
 
 // Short celebratory fanfare for the results screen (synthesised — no asset).
 function playFanfare() {

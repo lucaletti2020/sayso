@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Play, Mic, Square, Loader2, RefreshCw, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { playCorrect, playWrong, wordColor } from "@/lib/feedback-fx";
 
 type Sentence = {
   id: string;
@@ -65,29 +66,6 @@ function encodeWav(samples: Float32Array, sampleRate: number) {
   return new Blob([view], { type: "audio/wav" });
 }
 
-function wordColor(score: number) {
-  if (score >= 90) return "bg-green-100 text-green-700 border-green-200";
-  if (score >= 75) return "bg-amber-100 text-amber-700 border-amber-200";
-  return "bg-red-100 text-red-700 border-red-200";
-}
-
-// Feedback sounds (lazy singletons so they're only created in the browser).
-let correctSound: HTMLAudioElement | null = null;
-let wrongSound: HTMLAudioElement | null = null;
-
-function playCorrect() {
-  if (typeof window === "undefined") return;
-  correctSound ??= new Audio("/sounds/correct.mp3");
-  correctSound.currentTime = 0;
-  correctSound.play().catch(() => {});
-}
-
-function playWrong() {
-  if (typeof window === "undefined") return;
-  wrongSound ??= new Audio("/sounds/wrong.mp3");
-  wrongSound.currentTime = 0;
-  wrongSound.play().catch(() => {});
-}
 
 function emojiFor(score: number) {
   if (score >= 90) return "😊";
