@@ -35,8 +35,17 @@ async function send(to: string, subject: string, html: string) {
   }
 }
 
+// Escapes user- or model-provided text before interpolating it into email HTML.
+function esc(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export async function sendWelcomeEmail(to: string, name?: string | null) {
-  const first = name?.split(" ")[0] ?? "there";
+  const first = esc(name?.split(" ")[0] ?? "there");
   await send(
     to,
     "Welcome to TalktheTalk 👋",
@@ -56,13 +65,13 @@ export async function sendFeedbackReadyEmail(
   feedbackUrl: string,
   score: number
 ) {
-  const first = name?.split(" ")[0] ?? "there";
+  const first = esc(name?.split(" ")[0] ?? "there");
   await send(
     to,
     `Your feedback is ready — ${scenarioTitle}`,
     layout(
       `Nice work, ${first}!`,
-      `<p>You just finished <strong>${scenarioTitle}</strong> and scored <strong>${Math.round(score)}/100</strong>.</p>
+      `<p>You just finished <strong>${esc(scenarioTitle)}</strong> and scored <strong>${Math.round(score)}/100</strong>.</p>
        <p>See what went well and a few simple tips to improve.</p>`,
       { label: "View my feedback", url: feedbackUrl }
     )
@@ -70,7 +79,7 @@ export async function sendFeedbackReadyEmail(
 }
 
 export async function sendReengagementEmail(to: string, name?: string | null) {
-  const first = name?.split(" ")[0] ?? "there";
+  const first = esc(name?.split(" ")[0] ?? "there");
   await send(
     to,
     "Ready for your first conversation?",
