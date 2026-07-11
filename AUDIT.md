@@ -84,7 +84,7 @@ Vocabulary quiz, AI voice conversation (Vapi) → feedback + dashboard.
 | T7 | Added `npm test` (node:test + tsx): 7 characterization tests for `cefr`, `quiz`, `objectives` | `test: add characterization tests for pure libs` |
 
 ### Behavioral changes — needs review
-- **H1**: if `CRON_SECRET` is not set in the Vercel env, the daily re-engagement cron now returns 401 instead of running. Verify the env var exists in production (Vercel → Settings → Environment Variables).
+- **H1**: if `CRON_SECRET` is not set in the Vercel env, the daily re-engagement cron now returns 401 instead of running. ✅ Confirmed set in Vercel production (11 Jul 2026) — no action needed.
 - **T2**: `GET /api/scenario/feedback` removed — it had no callers in the app; only external consumers (none known) would notice.
 - No other API contracts, schemas, or user-visible behaviors changed.
 
@@ -110,8 +110,7 @@ Vocabulary quiz, AI voice conversation (Vapi) → feedback + dashboard.
 
 **Prioritized recommendations**
 1. Add rate limiting to the unauthenticated onboarding endpoints (cost exposure — highest remaining risk).
-2. Confirm `CRON_SECRET` is set in Vercel production env (behavioral change H1).
-3. Split `src/app/page.tsx` into a hook + step components, with a Playwright smoke test of the onboarding chat first.
-4. Decide dashboard behavior for multi-course users and add a per-course view.
-5. Extend the test suite to API routes (mock Prisma/OpenAI) — start with `sentences` and `quiz` validation paths, whose pure helpers are already under test.
-6. Add CI (GitHub Action: `tsc`, `eslint`, `npm test`, `next build`) so these gates run on every push.
+2. Split `src/app/page.tsx` into a hook + step components, with a Playwright smoke test of the onboarding chat first.
+3. Decide dashboard behavior for multi-course users and add a per-course view.
+4. Extend the test suite to API routes (mock Prisma/OpenAI) — start with `sentences` and `quiz` validation paths, whose pure helpers are already under test.
+5. Add CI (GitHub Action: `tsc`, `eslint`, `npm test`, `next build`) so these gates run on every push.
