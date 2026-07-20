@@ -386,9 +386,10 @@ Return ONLY valid JSON with this shape:
 }`;
 }
 
-// Classifies a user's free-text industry + job title onto the curriculum's
-// fixed taxonomy. Returns matched=false if the industry isn't reasonably
-// covered (caller then falls back to dynamic generation).
+// Maps a user's free-text industry + job title onto the curriculum's fixed
+// taxonomy. ALWAYS returns the closest pair — every course is built on the
+// curriculum backbone, and situations are later personalised to the user's
+// real job (so a stretch match is fine).
 export function curriculumMatchPrompt(
   user: { industry?: string | null; company?: string | null; jobTitle?: string | null; responsibilities?: string[] },
   taxonomy: { industry: string; jobTitles: string[] }[]
@@ -405,10 +406,10 @@ Taxonomy (industry → available job titles):
 ${taxonomy.map((t) => `- ${t.industry}: ${t.jobTitles.join(", ")}`).join("\n")}
 
 Rules:
-- Pick the single closest industry ONLY if the user's industry is genuinely covered by the taxonomy. If it is a clearly different sector not represented here, set "matched" to false.
-- If matched, also pick the single closest job title from THAT industry's list (exact string from the list).
+- ALWAYS pick exactly one industry and one job title from the taxonomy — even when the user's sector is not directly covered. Choose the industry whose typical work conversations are MOST similar to the user's, then the job title from THAT industry whose duties are most similar to the user's role (exact strings from the list).
+- Example: a government lawyer might map to Financial Services → a compliance-style role; a hotel manager might map to Education → an administrator-style role.
 
-Return ONLY valid JSON: { "matched": true/false, "industry": "exact industry or null", "jobTitle": "exact job title or null" }`;
+Return ONLY valid JSON: { "industry": "exact industry from the list", "jobTitle": "exact job title from that industry" }`;
 }
 
 // Personalises a fixed curriculum (12 units) into scenarios for one learner.
@@ -424,7 +425,7 @@ export function curriculumCoursePrompt(
 What they told us about their English needs:
 ${profile.answers.map((a, i) => `${i + 1}. ${a.question} → ${a.answer}`).join("\n")}
 
-Below are ${units.length} course units. Each has a grammar/vocabulary/functions focus and a base scenario. Keep each unit's focus EXACTLY as given — only personalise the situation so it feels real for THIS person (use their role, company, and answers), staying true to the unit's base scenario and language focus.
+Below are ${units.length} course units. Each has a grammar/vocabulary/functions focus and a base scenario. Keep each unit's focus EXACTLY as given — only personalise the situation so it feels real for THIS person (use their role, company, and answers). The base scenarios may come from a DIFFERENT industry than the user's: in that case, transform the situation into their real work context while keeping the same communicative purpose (e.g. "explaining a software outage to a client" becomes "explaining a case delay to a client" for a lawyer). Never leave a situation that doesn't fit their actual job.
 
 ${units
   .map(

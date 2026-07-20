@@ -13,6 +13,10 @@ export async function POST(req: NextRequest) {
   const taxonomy = await Promise.all(
     industries.map(async (industry) => ({ industry, jobTitles: await listJobTitles(industry) }))
   );
+  // No curriculum seeded: let the frontend fall back to dynamic generation.
+  if (taxonomy.length === 0 || taxonomy.every((t) => t.jobTitles.length === 0)) {
+    return NextResponse.json({ matched: false });
+  }
 
   const openai = getAzureOpenAI();
   const completion = await openai.chat.completions.create({
@@ -36,23 +40,24 @@ export async function POST(req: NextRequest) {
     max_completion_tokens: 200,
   });
 
-  let result: { matched?: boolean; industry?: string | null; jobTitle?: string | null } = {};
+  let result: { industry?: string | null; jobTitle?: string | null } = {};
   try {
     const parsed = JSON.parse(completion.choices[0].message.content ?? "{}");
-    result = parsed?.matched !== undefined ? parsed : (parsed.content ?? {});
+    result = parsed?.industry !== undefined ? parsed : (parsed.content ?? {});
   } catch {
-    return NextResponse.json({ matched: false });
+    result = {};
   }
 
-  // Validate the model's answer against the real taxonomy.
-  const industry = result.industry ?? "";
-  const jobTitle = result.jobTitle ?? "";
-  const industryEntry = taxonomy.find((t) => t.industry === industry);
-  const validJob = industryEntry?.jobTitles.includes(jobTitle);
+  // Validate the model's answer against the real taxonomy (case-insensitive),
+  // falling back deterministically so a course can ALWAYS be built on the
+  // curriculum backbone.
+  const wantIndustry = (result.industry ?? "").trim().toLowerCase();
+  const wantJob = (result.jobTitle ?? "").trim().toLowerCase();
+  const industryEntry =
+    taxonomy.find((t) => t.industry.toLowerCase() === wantIndustry) ?? taxonomy[0];
+  const jobTitle =
+    industryEntry.jobTitles.find((j) => j.toLowerCase() === wantJob) ??
+    industryEntry.jobTitles[0];
 
-  if (!result.matched || !industryEntry || !validJob) {
-    return NextResponse.json({ matched: false });
-  }
-
-  return NextResponse.json({ matched: true, industry, jobTitle });
+  return NextResponse.json({ matched: true, industry: industryEntry.industry, jobTitle });
 }
